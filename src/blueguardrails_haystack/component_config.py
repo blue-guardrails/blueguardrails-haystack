@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from blueguardrails_haystack._utils import is_mapping, to_int
-from blueguardrails_haystack.request_options import component_request_options, options_from_object
+from blueguardrails_haystack.request_options import component_request_options
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 _SERVER_URL_ATTRS = (
@@ -169,10 +169,3 @@ def extract_component_config(instance: Any) -> dict[str, Any]:
         config["tools"] = tools
 
     return config
-
-
-# Backward-compatible private aliases used by existing tests and downstream users
-# that reached into ``blueguardrails_haystack.tracer`` before the refactor.
-_extract_component_config = extract_component_config
-_extract_component_request_options = component_request_options
-_extract_options_from_object = options_from_object

@@ -6,7 +6,13 @@ build-backend = "hatchling.build"
 name = "blueguardrails-haystack"
 version = "0.1.0"
 description = "Blue Guardrails tracing integration for Haystack"
-requires-python = ">=3.13"
+requires-python = ">=3.11,<3.15"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "haystack-ai>=2.26.0",
     "opentelemetry-exporter-otlp-proto-http>=1.40.0",
@@ -37,7 +43,7 @@ packages = ["src/blueguardrails_haystack"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py311"
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
@@ -68,7 +74,7 @@ convention = "google"
 [tool.pyright]
 include = ["src/blueguardrails_haystack"]
 exclude = ["**/__pycache__", ".venv", "build", "dist"]
-pythonVersion = "3.13"
+pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 # The integration intentionally wraps Haystack internals and re-exports private

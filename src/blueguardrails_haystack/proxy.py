@@ -18,6 +18,8 @@ from blueguardrails_haystack.component_config import extract_component_config
 from blueguardrails_haystack.span import BGSpan, CompositeSpan
 
 if TYPE_CHECKING:
+    from haystack.utils import Secret
+
     from blueguardrails_haystack.tracer import BGTracer
 
 logger = logging.getLogger(__name__)
@@ -149,15 +151,56 @@ class _BGSidecarProxy(ProxyTracer):
         return self.actual_tracer.current_span()
 
 
-def install_bg_tracer(bg_tracer: BGTracer, *, replace: bool = False) -> None:
-    """Install Blue Guardrails on the global Haystack tracing proxy.
+def configure_bg_tracer(
+    bg_tracer: BGTracer | None = None,
+    *,
+    name: str | None = None,
+    endpoint: str | None = None,
+    api_key: str | Secret | None = None,
+    sample_rate: float = 1.0,
+    tags: dict[str, str] | None = None,
+    replace: bool = False,
+) -> BGTracer:
+    """Configure Blue Guardrails on the global Haystack tracing proxy.
+
+    If ``bg_tracer`` is not provided, this function creates one with the default
+    Blue Guardrails OTLP exporter. In that mode, it reads ``BG_API_KEY`` unless
+    ``api_key`` is provided explicitly.
 
     Args:
-        bg_tracer: Blue Guardrails tracer to install.
+        bg_tracer: Existing Blue Guardrails tracer to use. If omitted, a tracer
+            with the default Blue Guardrails exporter is created.
+        name: Trace name shown in Blue Guardrails when creating a default tracer.
+        endpoint: Blue Guardrails OTLP trace endpoint when creating a default tracer.
+        api_key: API key used to authorize trace export. Defaults to ``BG_API_KEY``.
+        sample_rate: Fraction of generator calls to trace, from 0.0 to 1.0.
+        tags: Conversation tags attached to exported spans.
         replace: Replace an already-installed Blue Guardrails tracer. Defaults
             to ``False`` to preserve existing idempotent connector behavior.
+
+    Returns:
+        The configured Blue Guardrails tracer.
+
+    Raises:
+        ValueError: If a default tracer is created and the API key is missing.
     """
     from haystack.tracing.tracer import tracer as proxy
+
+    existing_bg_tracer: BGTracer | None = getattr(proxy, "_bg_tracer", None)
+    if existing_bg_tracer is not None and not replace:
+        tracer_to_configure = existing_bg_tracer
+    elif bg_tracer is None:
+        from blueguardrails_haystack.tracer import _DEFAULT_ENDPOINT, _DEFAULT_TRACE_NAME, create_bg_tracer
+
+        tracer_to_configure = create_bg_tracer(
+            name=name or _DEFAULT_TRACE_NAME,
+            endpoint=endpoint or _DEFAULT_ENDPOINT,
+            api_key=api_key,
+            sample_rate=sample_rate,
+            tags=tags,
+        )
+    else:
+        tracer_to_configure = bg_tracer
 
     _patch_pipeline_component_span_for_models()
 
@@ -165,6 +208,6 @@ def install_bg_tracer(bg_tracer: BGTracer, *, replace: bool = False) -> None:
     if not isinstance(proxy, _BGSidecarProxy):
         raise TypeError("Haystack tracing proxy could not be upgraded for Blue Guardrails")
 
-    if replace or proxy._bg_tracer is None:
-        proxy._bg_tracer = bg_tracer
+    proxy._bg_tracer = tracer_to_configure
     proxy._bg_enabled = True
+    return tracer_to_configure

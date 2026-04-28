@@ -22,8 +22,6 @@ To persist raw Haystack inputs/outputs and captured semconv attributes as JSON f
     BG_RECORD_LLM_FIXTURES=1 BG_LLM_FIXTURE_DIR=tests/fixtures/llm_io ...
 """
 
-from __future__ import annotations
-
 import base64
 import importlib
 import json
@@ -50,7 +48,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
-from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
+from blueguardrails_haystack.proxy import configure_bg_tracer
+from blueguardrails_haystack.tracer import BGTracer
 
 pytestmark = pytest.mark.integration
 
@@ -455,7 +454,7 @@ def _make_bg_exporter(bg_live_export_config: Any | None) -> tuple[InMemorySpanEx
             )
         )
 
-    install_bg_tracer(BGTracer(provider))
+    configure_bg_tracer(BGTracer(provider))
     return exporter, provider
 
 

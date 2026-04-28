@@ -4,8 +4,6 @@
 
 """Shared pytest configuration for Blue Guardrails tests."""
 
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 

@@ -4,8 +4,6 @@
 
 """Offline semconv replay tests for JSON fixtures captured by real LLM integration tests."""
 
-from __future__ import annotations
-
 import json
 import os
 from pathlib import Path
