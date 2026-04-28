@@ -6,6 +6,8 @@
 
 from typing import Any
 
+from blueguardrails_haystack._utils import AnyMapping, is_mapping
+
 _FINISH_REASON_MAP = {
     # OpenAI/OpenAI-compatible, Mistral, Hugging Face, xAI.
     "stop": "stop",
@@ -58,7 +60,7 @@ _UNKNOWN_FINISH_REASON_VALUES = {
 }
 
 
-def extract_finish_reason(meta: dict[str, Any]) -> Any:
+def extract_finish_reason(meta: AnyMapping) -> Any:
     """Extract a raw finish reason from provider metadata."""
     for key in ("finish_reason", "stop_reason", "stopReason", "native_finish_reason"):
         if meta.get(key) is not None:
@@ -66,9 +68,12 @@ def extract_finish_reason(meta: dict[str, Any]) -> Any:
 
     for key in ("incomplete_details", "incompleteDetails"):
         details = meta.get(key)
-        if isinstance(details, dict) and details.get("reason") is not None:
-            return details["reason"]
-        reason = getattr(details, "reason", None)
+        if is_mapping(details):
+            if details.get("reason") is not None:
+                return details["reason"]
+            continue
+        details_object: Any = details
+        reason = getattr(details_object, "reason", None)
         if reason is not None:
             return reason
 

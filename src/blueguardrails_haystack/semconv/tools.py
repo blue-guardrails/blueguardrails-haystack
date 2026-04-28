@@ -5,22 +5,23 @@
 """Convert Haystack/provider tool definitions to OTel GenAI JSON."""
 
 import json
-from collections.abc import Iterable
 from typing import Any
+
+from blueguardrails_haystack._utils import AnyMapping, is_mapping, is_non_string_iterable
 
 
 def _iter_tool_items(tools: Any) -> list[Any]:
     """Flatten tool containers into individual tool-like objects."""
     if tools is None:
         return []
-    if isinstance(tools, dict):
+    if is_mapping(tools):
         return [tools]
 
     toolset_tools = getattr(tools, "tools", None)
     if toolset_tools is not None and not callable(toolset_tools):
         return _iter_tool_items(toolset_tools)
 
-    if isinstance(tools, Iterable) and not isinstance(tools, (str, bytes)):
+    if is_non_string_iterable(tools):
         result: list[Any] = []
         for item in tools:
             result.extend(_iter_tool_items(item))
@@ -29,9 +30,9 @@ def _iter_tool_items(tools: Any) -> list[Any]:
     return [tools]
 
 
-def _tool_parameters_from_dict(data: dict[str, Any]) -> Any:
+def _tool_parameters_from_dict(data: AnyMapping) -> Any:
     parameters = data.get("parameters") or data.get("input_schema") or data.get("inputSchema")
-    if isinstance(parameters, dict) and "json" in parameters:
+    if is_mapping(parameters) and "json" in parameters:
         return parameters["json"]
     return parameters
 
@@ -54,10 +55,10 @@ def _tool_definition(
     return result
 
 
-def _tool_dict_to_semconv(tool: dict[str, Any]) -> dict[str, Any] | None:
+def _tool_dict_to_semconv(tool: AnyMapping) -> dict[str, Any] | None:
     """Convert a tool dictionary to a GenAI tool definition."""
     function = tool.get("function")
-    if isinstance(function, dict):
+    if is_mapping(function):
         return _tool_definition(
             function.get("name"),
             description=function.get("description"),
@@ -65,7 +66,7 @@ def _tool_dict_to_semconv(tool: dict[str, Any]) -> dict[str, Any] | None:
         )
 
     spec = tool.get("toolSpec")
-    if isinstance(spec, dict):
+    if is_mapping(spec):
         return _tool_definition(
             spec.get("name"),
             description=spec.get("description"),
@@ -82,11 +83,11 @@ def _tool_dict_to_semconv(tool: dict[str, Any]) -> dict[str, Any] | None:
 
 def _tool_to_semconv(tool: Any) -> dict[str, Any] | None:
     """Convert a tool-like object to a GenAI tool definition."""
-    if isinstance(tool, dict):
+    if is_mapping(tool):
         return _tool_dict_to_semconv(tool)
 
     spec = getattr(tool, "tool_spec", None)
-    if isinstance(spec, dict):
+    if is_mapping(spec):
         return _tool_dict_to_semconv(spec)
 
     return _tool_definition(

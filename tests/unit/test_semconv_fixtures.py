@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from haystack.dataclasses import ChatMessage
 
 from blueguardrails_haystack.semconv import (

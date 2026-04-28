@@ -7,15 +7,15 @@ import json
 from typing import Any
 
 import pytest
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-
+from conftest import reset_haystack_tracing_state
 from haystack import tracing
 from haystack.dataclasses import ChatMessage
 from haystack.tracing import Span, Tracer
 from haystack.tracing.tracer import NullSpan, NullTracer, ProxyTracer
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from blueguardrails_haystack.tracer import (
     BGSpan,
@@ -25,9 +25,6 @@ from blueguardrails_haystack.tracer import (
     _extract_component_config,
     install_bg_tracer,
 )
-
-from conftest import reset_haystack_tracing_state
-
 
 # --- Helpers ---
 
@@ -230,7 +227,7 @@ class TestBGTracer:
                 "haystack.component.name": "llm",
                 "haystack.component.type": "OpenAIChatGenerator",
             }
-            with tracer.trace("haystack.component.run", tags=tags) as span:
+            with tracer.trace("haystack.component.run", tags=tags):
                 pass
 
         spans = exporter.get_finished_spans()

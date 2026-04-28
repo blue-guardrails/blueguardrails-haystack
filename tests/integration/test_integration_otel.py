@@ -20,21 +20,18 @@ from collections.abc import Iterator
 from typing import Any
 
 import opentelemetry.trace
+from conftest import reset_haystack_tracing_state
+from haystack import Pipeline, component, tracing
+from haystack.components.builders import ChatPromptBuilder
+from haystack.dataclasses import ChatMessage
+from haystack.tools import Tool
+from haystack.tracing import OpenTelemetryTracer, Span, Tracer, utils as tracing_utils
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from haystack import Pipeline, component, tracing
-from haystack.components.builders import ChatPromptBuilder
-from haystack.dataclasses import ChatMessage
-from haystack.tools import Tool
-from haystack.tracing import OpenTelemetryTracer, Span, Tracer
-from haystack.tracing import utils as tracing_utils
-
 from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
-
-from conftest import reset_haystack_tracing_state
 
 
 @component
@@ -225,12 +222,14 @@ class TestOtelCoexistence:
         pipe.connect("prompt_builder.prompt", "llm.messages")
 
         messages = [ChatMessage.from_user("Tell me about {{topic}}")]
-        pipe.run({
-            "prompt_builder": {
-                "template": messages,
-                "template_variables": {"topic": "testing"},
+        pipe.run(
+            {
+                "prompt_builder": {
+                    "template": messages,
+                    "template_variables": {"topic": "testing"},
+                }
             }
-        })
+        )
 
         # User's OTel: pipeline.run + prompt_builder + llm = at least 3 spans
         user_spans = user_exporter.get_finished_spans()
@@ -286,16 +285,20 @@ class TestOtelCoexistence:
         pipe = Pipeline()
         pipe.add_component("first_llm", MockChatGenerator())
         pipe.add_component("second_llm", MockChatGenerator())
-        pipe.run({
-            "first_llm": {"messages": [ChatMessage.from_user("Hi first")]},
-            "second_llm": {"messages": [ChatMessage.from_user("Hi second")]},
-        })
+        pipe.run(
+            {
+                "first_llm": {"messages": [ChatMessage.from_user("Hi first")]},
+                "second_llm": {"messages": [ChatMessage.from_user("Hi second")]},
+            }
+        )
 
         bg_spans = bg_exporter.get_finished_spans()
         assert len(bg_spans) == 2
         attrs_by_component = {span.attributes["haystack.component.name"]: span.attributes for span in bg_spans}
         for component_name in ("first_llm", "second_llm"):
-            assert attrs_by_component[component_name]["gen_ai.conversation.tags.haystack_component_name"] == component_name
+            assert (
+                attrs_by_component[component_name]["gen_ai.conversation.tags.haystack_component_name"] == component_name
+            )
 
     def test_bg_extracts_request_model_from_generator_instance(self):
         """BG captures request/response model even when a generator output has no metadata."""
@@ -329,9 +332,7 @@ class TestOtelCoexistence:
         assert output_messages == [
             {
                 "role": "assistant",
-                "parts": [
-                    {"type": "uri", "modality": "image", "uri": "https://example.com/generated.png"}
-                ],
+                "parts": [{"type": "uri", "modality": "image", "uri": "https://example.com/generated.png"}],
             }
         ]
 
@@ -388,13 +389,15 @@ class TestOtelCoexistence:
 
         pipe = Pipeline()
         pipe.add_component("llm", MockInitConfigChatGenerator())
-        pipe.run({
-            "llm": {
-                "messages": [ChatMessage.from_user("Hi")],
-                "generation_kwargs": {"temperature": 0.75, "max_tokens": 5},
-                "tools": [runtime_tool],
+        pipe.run(
+            {
+                "llm": {
+                    "messages": [ChatMessage.from_user("Hi")],
+                    "generation_kwargs": {"temperature": 0.75, "max_tokens": 5},
+                    "tools": [runtime_tool],
+                }
             }
-        })
+        )
 
         attrs = bg_exporter.get_finished_spans()[0].attributes
         assert attrs["gen_ai.request.temperature"] == 0.75
@@ -408,11 +411,11 @@ class TestOtelCoexistence:
         # Simulate: pipeline span → component span → auto-instrumented child
         lib_tracer = user_provider.get_tracer("openai.instrumentation")
 
-        with tracing.tracer.trace("haystack.pipeline.run") as pipeline_span:
+        with tracing.tracer.trace("haystack.pipeline.run"):
             with tracing.tracer.trace(
                 "haystack.component.run",
                 tags={"haystack.component.type": "MockChatGenerator", "haystack.component.name": "llm"},
-            ) as component_span:
+            ):
                 current = opentelemetry.trace.get_current_span()
                 assert not isinstance(current, opentelemetry.trace.NonRecordingSpan)
 
@@ -555,12 +558,14 @@ class TestDatadogCoexistence:
         pipe.connect("prompt_builder.prompt", "llm.messages")
 
         messages = [ChatMessage.from_user("Tell me about {{topic}}")]
-        pipe.run({
-            "prompt_builder": {
-                "template": messages,
-                "template_variables": {"topic": "Berlin"},
+        pipe.run(
+            {
+                "prompt_builder": {
+                    "template": messages,
+                    "template_variables": {"topic": "Berlin"},
+                }
             }
-        })
+        )
 
         dd_span_ops = [s.operation_name for s in dd_tracer.spans]
         assert any("pipeline" in op for op in dd_span_ops), f"Missing pipeline span in DD: {dd_span_ops}"

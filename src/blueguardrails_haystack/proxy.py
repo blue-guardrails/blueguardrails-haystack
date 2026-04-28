@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import contextlib
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 from haystack import logging
-from haystack.tracing import Span
-from haystack.tracing.tracer import NullSpan, NullTracer, ProxyTracer
+from haystack.tracing.tracer import NullSpan, NullTracer, ProxyTracer, Span
 
 from blueguardrails_haystack.component_config import extract_component_config
 from blueguardrails_haystack.span import BGSpan, CompositeSpan
@@ -23,8 +22,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_PIPELINE_SPAN_PATCHED = False
-_ORIGINAL_CREATE_COMPONENT_SPAN: Any | None = None
+_pipeline_span_patched = False
+_original_create_component_span: Any | None = None
 
 
 def _set_bg_component_config(span: Span, config: dict[str, Any]) -> None:
@@ -32,8 +31,8 @@ def _set_bg_component_config(span: Span, config: dict[str, Any]) -> None:
     if not config:
         return
     try:
-        if isinstance(span, CompositeSpan) and isinstance(span._bg, BGSpan):
-            span._bg.set_component_config(config)
+        if isinstance(span, CompositeSpan) and isinstance(span.bg, BGSpan):
+            span.bg.set_component_config(config)
         elif isinstance(span, BGSpan):
             span.set_component_config(config)
     except Exception as error:
@@ -42,9 +41,9 @@ def _set_bg_component_config(span: Span, config: dict[str, Any]) -> None:
 
 def _patch_pipeline_component_span_for_models() -> None:
     """Patch Haystack component spans to expose generator init config to Blue Guardrails."""
-    global _ORIGINAL_CREATE_COMPONENT_SPAN, _PIPELINE_SPAN_PATCHED
+    global _original_create_component_span, _pipeline_span_patched
 
-    if _PIPELINE_SPAN_PATCHED:
+    if _pipeline_span_patched:
         return
 
     try:
@@ -53,19 +52,20 @@ def _patch_pipeline_component_span_for_models() -> None:
         logger.warning("Blue Guardrails tracer could not patch Haystack pipeline spans", error=repr(error))
         return
 
-    _ORIGINAL_CREATE_COMPONENT_SPAN = PipelineBase._create_component_span
+    original_create_component_span = PipelineBase._create_component_span
+    _original_create_component_span = original_create_component_span
 
     @staticmethod
     @contextlib.contextmanager
     def _create_component_span_with_bg_model(
         component_name: str, instance: Any, inputs: dict[str, Any], parent_span: Span | None = None
-    ) -> Iterator[Span]:
-        with _ORIGINAL_CREATE_COMPONENT_SPAN(component_name, instance, inputs, parent_span) as span:
+    ) -> Generator[Span]:
+        with original_create_component_span(component_name, instance, inputs, parent_span) as span:
             _set_bg_component_config(span, extract_component_config(instance))
             yield span
 
     PipelineBase._create_component_span = _create_component_span_with_bg_model
-    _PIPELINE_SPAN_PATCHED = True
+    _pipeline_span_patched = True
 
 
 def _enter_bg_trace(
@@ -110,7 +110,7 @@ class _BGSidecarProxy(ProxyTracer):
     @contextlib.contextmanager
     def trace(
         self, operation_name: str, tags: dict[str, Any] | None = None, parent_span: Span | None = None
-    ) -> Iterator[Span]:
+    ) -> Generator[Span]:
         """Trace through the user tracer and Blue Guardrails when enabled."""
         if self._bg_tracer is None or not self._bg_enabled:
             with self.actual_tracer.trace(operation_name, tags=tags, parent_span=parent_span) as span:
@@ -132,8 +132,8 @@ class _BGSidecarProxy(ProxyTracer):
         user_parent = parent_span
         bg_parent = parent_span
         if isinstance(parent_span, CompositeSpan):
-            user_parent = parent_span._original
-            bg_parent = parent_span._bg
+            user_parent = parent_span.original
+            bg_parent = parent_span.bg
 
         with self.actual_tracer.trace(operation_name, tags=tags, parent_span=user_parent) as user_span:
             bg_ctx, bg_span = _enter_bg_trace(self._bg_tracer, operation_name, tags, bg_parent)
@@ -157,11 +157,14 @@ def install_bg_tracer(bg_tracer: BGTracer, *, replace: bool = False) -> None:
         replace: Replace an already-installed Blue Guardrails tracer. Defaults
             to ``False`` to preserve existing idempotent connector behavior.
     """
-    from haystack.tracing import tracer as proxy
+    from haystack.tracing.tracer import tracer as proxy
 
     _patch_pipeline_component_span_for_models()
 
     proxy.__class__ = _BGSidecarProxy
-    if replace or getattr(proxy, "_bg_tracer", None) is None:
+    if not isinstance(proxy, _BGSidecarProxy):
+        raise TypeError("Haystack tracing proxy could not be upgraded for Blue Guardrails")
+
+    if replace or proxy._bg_tracer is None:
         proxy._bg_tracer = bg_tracer
     proxy._bg_enabled = True

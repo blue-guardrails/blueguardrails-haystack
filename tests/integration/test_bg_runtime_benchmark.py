@@ -22,14 +22,12 @@ import time
 from typing import Any
 
 import pytest
-
-from haystack import Pipeline, component, tracing
+from conftest import reset_haystack_tracing_state
+from haystack import Pipeline, component
 from haystack.dataclasses import ChatMessage
 from haystack.utils import Secret
 
 from blueguardrails_haystack import BlueGuardrailsConnector
-
-from conftest import reset_haystack_tracing_state
 
 pytestmark = pytest.mark.benchmark
 

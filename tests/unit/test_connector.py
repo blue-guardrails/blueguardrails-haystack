@@ -8,19 +8,17 @@ from copy import deepcopy
 from unittest.mock import patch
 
 import pytest
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
-
+from conftest import reset_haystack_tracing_state
 from haystack import Pipeline, component, default_from_dict, default_to_dict, tracing
 from haystack.dataclasses import ChatMessage
 from haystack.tracing.tracer import NullTracer
 from haystack.utils import Secret
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
 from blueguardrails_haystack.component_config import extract_component_config
 from blueguardrails_haystack.tracer import _BGSidecarProxy
-
-from conftest import reset_haystack_tracing_state
 
 
 @component
@@ -281,9 +279,7 @@ class TestBlueGuardrailsConnector:
         assert connector.name == "test"
         assert connector.sample_rate == 0.1
 
-    def test_connector_to_dict_from_dict_roundtrip_initializes_tracing(
-        self, recording_connector_exporter, monkeypatch
-    ):
+    def test_connector_to_dict_from_dict_roundtrip_initializes_tracing(self, recording_connector_exporter, monkeypatch):
         monkeypatch.setenv("BG_API_KEY", "fake-key")
         connector = BlueGuardrailsConnector(
             name="serde-connector",

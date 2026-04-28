@@ -7,23 +7,33 @@
 from typing import Any
 
 from blueguardrails_haystack._utils import (
+    AnyMapping,
     first_present,
+    is_list,
+    is_mapping,
     mapping_numeric_items,
     nested_first_present,
     snake_to_lower_camel,
     to_int,
 )
 
+_EMPTY_MAPPING: AnyMapping = {}
+
+
+def _mapping_or_empty(value: Any) -> AnyMapping:
+    """Return a mapping view for dynamic provider dictionaries."""
+    return value if is_mapping(value) else _EMPTY_MAPPING
+
 
 def _sum_token_details(value: Any) -> int | None:
     """Sum token counts from provider modality-detail lists."""
-    if not isinstance(value, list):
+    if not is_list(value):
         return None
 
     total = 0
     found = False
     for item in value:
-        if isinstance(item, dict):
+        if is_mapping(item):
             token_count = first_present(item, "token_count", "tokenCount")
         else:
             token_count = getattr(item, "token_count", None)
@@ -44,26 +54,40 @@ def _add_usage_detail(details: dict[str, int], key: str, value: Any) -> None:
         details[key] = int_value
 
 
-def _add_openai_token_detail_attrs(details: dict[str, int], usage: dict[str, Any]) -> None:
+def _add_openai_token_detail_attrs(details: dict[str, int], usage: AnyMapping) -> None:
     """Add OpenAI Chat Completions and Responses token-detail fields."""
     prompt_details = first_present(usage, "prompt_tokens_details", "promptTokensDetails")
     input_details = first_present(usage, "input_tokens_details", "inputTokensDetails")
     completion_details = first_present(usage, "completion_tokens_details", "completionTokensDetails")
     output_details = first_present(usage, "output_tokens_details", "outputTokensDetails")
 
-    _add_usage_detail(details, "input_audio_tokens", first_present(prompt_details or {}, "audio_tokens", "audioTokens"))
-    _add_usage_detail(details, "input_audio_tokens", first_present(input_details or {}, "audio_tokens", "audioTokens"))
+    _add_usage_detail(
+        details, "input_audio_tokens", first_present(_mapping_or_empty(prompt_details), "audio_tokens", "audioTokens")
+    )
+    _add_usage_detail(
+        details, "input_audio_tokens", first_present(_mapping_or_empty(input_details), "audio_tokens", "audioTokens")
+    )
 
     for key, value in mapping_numeric_items(completion_details):
         _add_usage_detail(details, key, value)
-    _add_usage_detail(details, "output_audio_tokens", first_present(completion_details or {}, "audio_tokens", "audioTokens"))
+    _add_usage_detail(
+        details,
+        "output_audio_tokens",
+        first_present(_mapping_or_empty(completion_details), "audio_tokens", "audioTokens"),
+    )
 
-    _add_usage_detail(details, "reasoning_tokens", first_present(output_details or {}, "reasoning_tokens", "reasoningTokens"))
-    _add_usage_detail(details, "output_audio_tokens", first_present(output_details or {}, "audio_tokens", "audioTokens"))
+    _add_usage_detail(
+        details,
+        "reasoning_tokens",
+        first_present(_mapping_or_empty(output_details), "reasoning_tokens", "reasoningTokens"),
+    )
+    _add_usage_detail(
+        details, "output_audio_tokens", first_present(_mapping_or_empty(output_details), "audio_tokens", "audioTokens")
+    )
 
 
 def _item_value(item: Any, *keys: str) -> Any:
-    if isinstance(item, dict):
+    if is_mapping(item):
         return first_present(item, *keys)
     for key in keys:
         value = getattr(item, key, None)
@@ -72,7 +96,7 @@ def _item_value(item: Any, *keys: str) -> Any:
     return None
 
 
-def _add_gemini_modality_details(details: dict[str, int], usage: dict[str, Any]) -> None:
+def _add_gemini_modality_details(details: dict[str, int], usage: AnyMapping) -> None:
     """Add Gemini modality token counts to usage details."""
     sources = (
         ("prompt_tokens_details", "promptTokensDetails", "prompt_tokens", "input_audio_tokens"),
@@ -83,7 +107,7 @@ def _add_gemini_modality_details(details: dict[str, int], usage: dict[str, Any])
 
     for snake_key, camel_key, suffix, audio_detail_key in sources:
         value = first_present(usage, snake_key, camel_key)
-        if not isinstance(value, list):
+        if not is_list(value):
             continue
 
         for item in value:
@@ -97,7 +121,7 @@ def _add_gemini_modality_details(details: dict[str, int], usage: dict[str, Any])
                 _add_usage_detail(details, audio_detail_key, token_count)
 
 
-def extract_usage_attributes(meta: dict[str, Any], provider: str) -> dict[str, int]:
+def extract_usage_attributes(meta: AnyMapping, provider: str) -> dict[str, int]:
     """Extract OTel GenAI usage attributes from provider metadata.
 
     Args:
@@ -107,9 +131,8 @@ def extract_usage_attributes(meta: dict[str, Any], provider: str) -> dict[str, i
     Returns:
         Mapping of OTel attribute names to integer values.
     """
-    usage = meta.get("usage")
-    if not isinstance(usage, dict):
-        usage = meta
+    usage_value = meta.get("usage")
+    usage = usage_value if is_mapping(usage_value) else meta
 
     input_tokens = to_int(
         first_present(
@@ -185,7 +208,7 @@ def extract_usage_attributes(meta: dict[str, Any], provider: str) -> dict[str, i
     usage_details: dict[str, int] = {}
 
     explicit_details = usage.get("details")
-    if isinstance(explicit_details, dict):
+    if is_mapping(explicit_details):
         for detail_key, detail_value in mapping_numeric_items(explicit_details):
             _add_usage_detail(usage_details, detail_key, detail_value)
 

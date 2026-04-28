@@ -6,32 +6,108 @@ build-backend = "hatchling.build"
 name = "blueguardrails-haystack"
 version = "0.1.0"
 description = "Blue Guardrails tracing integration for Haystack"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-    "haystack-ai",
-    "opentelemetry-sdk",
-    "opentelemetry-exporter-otlp-proto-http",
+    "haystack-ai>=2.26.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.40.0",
+    "opentelemetry-sdk>=1.40.0",
 ]
 
 [project.optional-dependencies]
 integration = [
-    "pytest",
-    "python-dotenv",
-    "anthropic-haystack",
-    "google-genai-haystack",
-    "amazon-bedrock-haystack",
+    "amazon-bedrock-haystack>=6.8.1",
+    "anthropic-haystack>=5.7.0",
+    "google-genai-haystack>=4.1.0",
+    "pytest>=9.0.0",
+    "python-dotenv>=1.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.407",
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
+    "python-dotenv>=1.2.0",
+    "ruff>=0.14.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/blueguardrails_haystack"]
 
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "D",  # pydocstyle
+]
+ignore = [
+    "D100", # Ok to not have docstring for public modules
+    "D104", # Ok to not have docstring for public packages
+    "D105", # Ok to not have docstring for magic methods
+    "D401", # First line of docstring does not need to be imperative
+]
+isort = { combine-as-imports = true, known-first-party = ["blueguardrails_haystack"] }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pyright]
+include = ["src/blueguardrails_haystack"]
+exclude = ["**/__pycache__", ".venv", "build", "dist"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+# The integration intentionally wraps Haystack internals and re-exports private
+# compatibility aliases used by downstream users.
+reportPrivateUsage = false
+
 [tool.pytest.ini_options]
 addopts = "-m 'not integration and not benchmark'"
-testpaths = [
-    "tests/unit",
-    "tests/integration",
-]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 markers = [
     "integration: tests that make live external provider calls",
     "benchmark: runtime benchmark tests run explicitly with -m benchmark",
 ]
+
+[tool.coverage.run]
+source = ["blueguardrails_haystack"]
+branch = true
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
