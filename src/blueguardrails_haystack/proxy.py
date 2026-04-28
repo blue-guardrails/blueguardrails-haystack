@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sidecar proxy that fans out Haystack trace calls to BlueGuardrails."""
+"""Sidecar proxy that fans out Haystack trace calls to Blue Guardrails."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ _original_create_component_span: Any | None = None
 
 
 def _set_blueguardrails_component_config(span: Span, config: dict[str, Any]) -> None:
-    """Attach component init config only to the BlueGuardrails span."""
+    """Attach component init config only to the Blue Guardrails span."""
     if not config:
         return
     try:
@@ -38,11 +38,11 @@ def _set_blueguardrails_component_config(span: Span, config: dict[str, Any]) -> 
         elif isinstance(span, BlueGuardrailsSpan):
             span.set_component_config(config)
     except Exception as error:
-        logger.warning("BlueGuardrails tracer skipped component config", error=repr(error))
+        logger.warning("Blue Guardrails tracer skipped component config", error=repr(error))
 
 
 def _patch_pipeline_component_span_for_models() -> None:
-    """Patch Haystack component spans to expose generator init config to BlueGuardrails."""
+    """Patch Haystack component spans to expose generator init config to Blue Guardrails."""
     global _original_create_component_span, _pipeline_span_patched
 
     if _pipeline_span_patched:
@@ -51,7 +51,7 @@ def _patch_pipeline_component_span_for_models() -> None:
     try:
         from haystack.core.pipeline.base import PipelineBase
     except Exception as error:
-        logger.warning("BlueGuardrails tracer could not patch Haystack pipeline spans", error=repr(error))
+        logger.warning("Blue Guardrails tracer could not patch Haystack pipeline spans", error=repr(error))
         return
 
     original_create_component_span = PipelineBase._create_component_span
@@ -76,28 +76,28 @@ def _enter_blueguardrails_trace(
     tags: dict[str, Any] | None,
     parent_span: Span | None = None,
 ) -> tuple[Any, Span]:
-    """Start a BlueGuardrails trace without propagating failures."""
+    """Start a Blue Guardrails trace without propagating failures."""
     try:
         ctx = blueguardrails_tracer.trace(operation_name, tags=tags, parent_span=parent_span)
         span = ctx.__enter__()
         return ctx, span
     except Exception as error:
-        logger.warning("BlueGuardrails tracer failed to start span", operation_name=operation_name, error=repr(error))
+        logger.warning("Blue Guardrails tracer failed to start span", operation_name=operation_name, error=repr(error))
         return None, NullSpan()
 
 
 def _exit_blueguardrails_trace(blueguardrails_ctx: Any | None, exc_info: tuple[Any, ...] | None = None) -> None:
-    """End a BlueGuardrails trace without propagating failures."""
+    """End a Blue Guardrails trace without propagating failures."""
     if blueguardrails_ctx is None:
         return
     try:
         blueguardrails_ctx.__exit__(*exc_info) if exc_info else blueguardrails_ctx.__exit__(None, None, None)
     except Exception as error:
-        logger.warning("BlueGuardrails tracer failed while closing span", error=repr(error))
+        logger.warning("Blue Guardrails tracer failed while closing span", error=repr(error))
 
 
 class _BlueGuardrailsSidecarProxy(ProxyTracer):
-    """Fan out Haystack trace calls to the user tracer and BlueGuardrails."""
+    """Fan out Haystack trace calls to the user tracer and Blue Guardrails."""
 
     _blueguardrails_tracer: BlueGuardrailsTracer | None = None
     _blueguardrails_enabled: bool = False
@@ -116,7 +116,7 @@ class _BlueGuardrailsSidecarProxy(ProxyTracer):
     def trace(
         self, operation_name: str, tags: dict[str, Any] | None = None, parent_span: Span | None = None
     ) -> Generator[Span]:
-        """Trace through the user tracer and BlueGuardrails when enabled."""
+        """Trace through the user tracer and Blue Guardrails when enabled."""
         if self._blueguardrails_tracer is None or not self._blueguardrails_enabled:
             with self.actual_tracer.trace(operation_name, tags=tags, parent_span=parent_span) as span:
                 yield span
@@ -168,25 +168,25 @@ def configure_blueguardrails_tracer(
     tags: dict[str, str] | None = None,
     replace: bool = False,
 ) -> BlueGuardrailsTracer:
-    """Configure BlueGuardrails on the global Haystack tracing proxy.
+    """Configure Blue Guardrails on the global Haystack tracing proxy.
 
     If ``blueguardrails_tracer`` is not provided, this function creates one with the default
-    BlueGuardrails OTLP exporter. In that mode, it reads ``BLUEGUARDRAILS_API_KEY`` unless
+    Blue Guardrails OTLP exporter. In that mode, it reads ``BLUEGUARDRAILS_API_KEY`` unless
     ``api_key`` is provided explicitly.
 
     Args:
-        blueguardrails_tracer: Existing BlueGuardrails tracer to use. If omitted, a tracer
-            with the default BlueGuardrails exporter is created.
-        name: Trace name shown in BlueGuardrails when creating a default tracer.
-        endpoint: BlueGuardrails OTLP trace endpoint when creating a default tracer.
+        blueguardrails_tracer: Existing Blue Guardrails tracer to use. If omitted, a tracer
+            with the default Blue Guardrails exporter is created.
+        name: Trace name shown in Blue Guardrails when creating a default tracer.
+        endpoint: Blue Guardrails OTLP trace endpoint when creating a default tracer.
         api_key: API key used to authorize trace export. Defaults to ``BLUEGUARDRAILS_API_KEY``.
         sample_rate: Fraction of generator calls to trace, from 0.0 to 1.0.
         tags: Conversation tags attached to exported spans.
-        replace: Replace an already-installed BlueGuardrails tracer. Defaults
+        replace: Replace an already-installed Blue Guardrails tracer. Defaults
             to ``False`` to preserve existing idempotent connector behavior.
 
     Returns:
-        The configured BlueGuardrails tracer.
+        The configured Blue Guardrails tracer.
 
     Raises:
         ValueError: If a default tracer is created and the API key is missing.
@@ -213,7 +213,7 @@ def configure_blueguardrails_tracer(
 
     proxy.__class__ = _BlueGuardrailsSidecarProxy
     if not isinstance(proxy, _BlueGuardrailsSidecarProxy):
-        raise TypeError("Haystack tracing proxy could not be upgraded for BlueGuardrails")
+        raise TypeError("Haystack tracing proxy could not be upgraded for Blue Guardrails")
 
     proxy._blueguardrails_tracer = tracer_to_configure
     proxy._blueguardrails_enabled = True

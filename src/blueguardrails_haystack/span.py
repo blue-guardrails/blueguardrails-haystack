@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Haystack span implementations used by the BlueGuardrails sidecar tracer."""
+"""Haystack span implementations used by the Blue Guardrails sidecar tracer."""
 
 from typing import Any, TypeGuard
 
@@ -53,14 +53,14 @@ class BlueGuardrailsSpan(Span):
         self._is_chat = is_chat
 
     def set_tag(self, key: str, value: Any) -> None:
-        """Map a standard Haystack tag to BlueGuardrails attributes."""
+        """Map a standard Haystack tag to Blue Guardrails attributes."""
         try:
             if key in ("haystack.component.name", "haystack.component.type"):
                 self._span.set_attribute(key, str(value))
             elif key == "haystack.component.model":
                 self._set_request_model(str(value))
         except Exception as error:
-            logger.warning("BlueGuardrails tracer skipped tag", key=key, error=repr(error))
+            logger.warning("Blue Guardrails tracer skipped tag", key=key, error=repr(error))
 
     def set_content_tag(self, key: str, value: Any) -> None:
         """Map Haystack component input/output content to GenAI attributes."""
@@ -73,7 +73,7 @@ class BlueGuardrailsSpan(Span):
             elif key.endswith(".output"):
                 self._handle_output(value)
         except Exception as error:
-            logger.warning("BlueGuardrails tracer skipped content tag", key=key, error=repr(error))
+            logger.warning("Blue Guardrails tracer skipped content tag", key=key, error=repr(error))
 
     def _get_attribute(self, key: str, default: Any = None) -> Any:
         try:
@@ -261,14 +261,14 @@ class BlueGuardrailsSpan(Span):
 
 
 class CompositeSpan(Span):
-    """Forward span operations to the user's span and the BlueGuardrails span."""
+    """Forward span operations to the user's span and the Blue Guardrails span."""
 
     def __init__(self, original: Span, blueguardrails: Span) -> None:
-        """Initialize a span that forwards to user and BlueGuardrails spans.
+        """Initialize a span that forwards to user and Blue Guardrails spans.
 
         Args:
             original: User-configured Haystack span.
-            blueguardrails: BlueGuardrails span.
+            blueguardrails: Blue Guardrails span.
         """
         self._original = original
         self._blueguardrails = blueguardrails
@@ -280,7 +280,7 @@ class CompositeSpan(Span):
 
     @property
     def blueguardrails(self) -> Span:
-        """Return the wrapped BlueGuardrails span."""
+        """Return the wrapped Blue Guardrails span."""
         return self._blueguardrails
 
     def set_tag(self, key: str, value: Any) -> None:

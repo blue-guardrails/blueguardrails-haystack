@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 

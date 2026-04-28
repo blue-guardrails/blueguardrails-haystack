@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Extract generator initialization config for BlueGuardrails spans."""
+"""Extract generator initialization config for Blue Guardrails spans."""
 
 from typing import Any
 from urllib.parse import urlparse
@@ -152,7 +152,7 @@ def _extract_component_tools(instance: Any) -> Any:
 
 
 def extract_component_config(instance: Any) -> dict[str, Any]:
-    """Extract generator configuration needed for BlueGuardrails spans."""
+    """Extract generator configuration needed for Blue Guardrails spans."""
     config: dict[str, Any] = {}
 
     if model := _extract_component_model(instance):

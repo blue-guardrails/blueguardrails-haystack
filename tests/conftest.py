@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared pytest configuration for BlueGuardrails tests."""
+"""Shared pytest configuration for Blue Guardrails tests."""
 
 import os
 from dataclasses import dataclass
@@ -57,7 +57,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help=(
-            "Export integration/benchmark test spans to BlueGuardrails. "
+            "Export integration/benchmark test spans to Blue Guardrails. "
             "Can also be enabled with BLUEGUARDRAILS_SEND_TRACES=1. Requires BLUEGUARDRAILS_API_KEY."
         ),
     )
@@ -66,7 +66,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         default=None,
         help=(
-            "BlueGuardrails OTLP HTTP traces endpoint to use with --blueguardrails-send-traces. "
+            "Blue Guardrails OTLP HTTP traces endpoint to use with --blueguardrails-send-traces. "
             "Defaults to BLUEGUARDRAILS_ENDPOINT or the production endpoint."
         ),
     )
@@ -74,7 +74,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.fixture
 def blueguardrails_live_export_config(request: pytest.FixtureRequest) -> BlueGuardrailsLiveExportConfig | None:
-    """Return live BlueGuardrails export settings when explicitly enabled.
+    """Return live Blue Guardrails export settings when explicitly enabled.
 
     Args:
         request: Pytest request with command-line option access.

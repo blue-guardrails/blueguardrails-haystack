@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Public tracing API for the BlueGuardrails Haystack sidecar."""
+"""Public tracing API for the Blue Guardrails Haystack sidecar."""
 
 import contextlib
 import os
@@ -42,7 +42,7 @@ class BlueGuardrailsTracer(Tracer):
         """Initialize the tracer.
 
         Args:
-            provider: OpenTelemetry tracer provider used for BlueGuardrails spans.
+            provider: OpenTelemetry tracer provider used for Blue Guardrails spans.
             conversation_tags: Tags to attach to every exported GenAI span.
         """
         self._tracer = provider.get_tracer("blueguardrails-haystack")
@@ -73,7 +73,7 @@ class BlueGuardrailsTracer(Tracer):
         component_name = str(tags.get("haystack.component.name", "unknown") or "unknown")
         provider_name = infer_provider_name(component_type)
 
-        # Start a root span so BlueGuardrails does not change the user's active OTel context.
+        # Start a root span so Blue Guardrails does not change the user's active OTel context.
         otel_span = self._tracer.start_span(name=f"{op_name} {component_name}", kind=SpanKind.CLIENT, context=Context())
         try:
             otel_span.set_attribute("gen_ai.operation.name", op_name)
@@ -117,7 +117,7 @@ def _resolve_api_key(api_key: str | Secret | None) -> str:
 
     if not resolved_key or not resolved_key.strip():
         raise ValueError(
-            "BlueGuardrails API key is required. Set BLUEGUARDRAILS_API_KEY or pass api_key to "
+            "Blue Guardrails API key is required. Set BLUEGUARDRAILS_API_KEY or pass api_key to "
             "configure_blueguardrails_tracer()."
         )
     return resolved_key.strip()
@@ -131,7 +131,7 @@ def create_blueguardrails_tracer(
     sample_rate: float,
     tags: dict[str, str] | None,
 ) -> BlueGuardrailsTracer:
-    """Create a BlueGuardrails tracer with the default OTLP exporter."""
+    """Create a Blue Guardrails tracer with the default OTLP exporter."""
     if not 0.0 <= sample_rate <= 1.0:
         raise ValueError("sample_rate must be between 0.0 and 1.0")
 

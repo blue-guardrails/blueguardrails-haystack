@@ -1,10 +1,10 @@
 # blueguardrails-haystack
 
-BlueGuardrails tracing integration for Haystack.
+Blue Guardrails tracing integration for Haystack.
 
-The package sends Haystack generator calls to BlueGuardrails as OpenTelemetry GenAI spans. It records inputs, outputs, model metadata, request options, tool definitions, token usage, and finish reasons for LLM calls in Haystack pipelines and agents.
+The package sends Haystack generator calls to Blue Guardrails as OpenTelemetry GenAI spans. It records inputs, outputs, model metadata, request options, tool definitions, token usage, and finish reasons for LLM calls in Haystack pipelines and agents.
 
-The connector installs as a sidecar. Your existing Haystack tracer keeps working, and BlueGuardrails receives only generator spans.
+The connector installs as a sidecar. Your existing Haystack tracer keeps working, and Blue Guardrails receives only generator spans.
 
 ## Install
 
@@ -22,7 +22,7 @@ uv add blueguardrails-haystack
 
 The package supports Python 3.11 through 3.14.
 
-Set your BlueGuardrails API key:
+Set your Blue Guardrails API key:
 
 ```bash
 export BLUEGUARDRAILS_API_KEY="your-api-key"
@@ -70,11 +70,11 @@ result = pipe.run(
 print(result["llm"]["replies"][0].text)
 ```
 
-When the pipeline runs, BlueGuardrails receives a trace for the `llm` generator call.
+When the pipeline runs, Blue Guardrails receives a trace for the `llm` generator call.
 
 ### Trace an agent
 
-To trace a standalone Haystack agent, configure the BlueGuardrails tracer before you run the agent.
+To trace a standalone Haystack agent, configure the Blue Guardrails tracer before you run the agent.
 
 ```python
 from haystack.components.agents import Agent
@@ -120,7 +120,7 @@ result = agent.run(
 print(result["last_message"].text)
 ```
 
-BlueGuardrails receives a trace for each generator call the agent makes.
+Blue Guardrails receives a trace for each generator call the agent makes.
 
 `configure_blueguardrails_tracer()` reads `BLUEGUARDRAILS_API_KEY` by default. If you don't set `BLUEGUARDRAILS_API_KEY`, pass `api_key` explicitly. It raises `ValueError` if neither is set:
 
@@ -141,7 +141,7 @@ BlueGuardrailsConnector(
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `name` | Required | Trace name shown in BlueGuardrails. |
+| `name` | Required | Trace name shown in Blue Guardrails. |
 | `api_key` | `Secret.from_env_var("BLUEGUARDRAILS_API_KEY")` | API key for trace export. |
 | `endpoint` | `https://api.blueguardrails.com/v1/traces` | OpenTelemetry Protocol (OTLP) HTTP traces endpoint. |
 | `sample_rate` | `1.0` | Fraction of generator calls to export. Use a value between `0.0` and `1.0`. |

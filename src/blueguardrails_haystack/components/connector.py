@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Haystack component that enables BlueGuardrails LLM tracing."""
+"""Haystack component that enables Blue Guardrails LLM tracing."""
 
 from typing import Any
 
@@ -24,7 +24,7 @@ _DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 
 @component
 class BlueGuardrailsConnector:
-    """Send Haystack generator traces to BlueGuardrails.
+    """Send Haystack generator traces to Blue Guardrails.
 
     Add this component to a pipeline without connecting it. It installs a sidecar
     tracer that exports GenAI spans while leaving the user's tracer in place.
@@ -60,8 +60,8 @@ class BlueGuardrailsConnector:
         """Initialize the connector.
 
         Args:
-            name: Pipeline trace name shown in BlueGuardrails.
-            endpoint: BlueGuardrails OTLP trace endpoint.
+            name: Pipeline trace name shown in Blue Guardrails.
+            endpoint: Blue Guardrails OTLP trace endpoint.
             api_key: API key used to authorize trace export.
             sample_rate: Fraction of generator calls to trace, from 0.0 to 1.0.
             tags: Conversation tags attached to exported spans.

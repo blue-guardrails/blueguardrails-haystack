@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "blueguardrails-haystack"
 version = "0.1.0"
-description = "BlueGuardrails tracing integration for Haystack"
+description = "Blue Guardrails tracing integration for Haystack"
 requires-python = ">=3.11,<3.15"
 classifiers = [
     "Programming Language :: Python :: 3.11",

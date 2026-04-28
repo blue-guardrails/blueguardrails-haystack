@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Real LLM integration tests for BlueGuardrails GenAI tracing.
+"""Real LLM integration tests for Blue Guardrails GenAI tracing.
 
 These tests make live provider calls. Select them with pytest's integration marker:
 
@@ -11,7 +11,7 @@ These tests make live provider calls. Select them with pytest's integration mark
 Set provider credentials in the usual Haystack environment variables or in a .env
 file loaded by python-dotenv. For Bedrock, `AWS_BEARER_TOKEN_BEDROCK` is also
 accepted for API key auth when a region is set. To also export the captured spans
-to BlueGuardrails, set BLUEGUARDRAILS_API_KEY and add --blueguardrails-send-traces:
+to Blue Guardrails, set BLUEGUARDRAILS_API_KEY and add --blueguardrails-send-traces:
 
     uv run --extra integration pytest -m integration --blueguardrails-send-traces \
         tests/integration/test_real_generators.py
@@ -506,10 +506,10 @@ def _run_case(
 
         flushed = provider.force_flush()
         if blueguardrails_live_export_config is not None and not flushed:
-            pytest.fail("timed out flushing spans to BlueGuardrails")
+            pytest.fail("timed out flushing spans to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
-        assert len(spans) == 1, f"expected exactly one BlueGuardrails span, got {[span.name for span in spans]}"
+        assert len(spans) == 1, f"expected exactly one Blue Guardrails span, got {[span.name for span in spans]}"
         span = spans[0]
         _assert_semconv_span(case, span, model, streaming=variant.streaming)
         _record_fixture(case, model, init_kwargs, run_input, component_output, span, variant)
@@ -723,7 +723,7 @@ def test_real_text_generator_tracing(
 def test_real_pipeline_with_two_chat_generators(
     case: RealGeneratorCase, blueguardrails_live_export_config: Any | None
 ) -> None:
-    """Verify a two-generator pipeline emits correlated BlueGuardrails spans.
+    """Verify a two-generator pipeline emits correlated Blue Guardrails spans.
 
     Args:
         case: Generator test case.
@@ -761,10 +761,10 @@ def test_real_pipeline_with_two_chat_generators(
 
         flushed = provider.force_flush()
         if blueguardrails_live_export_config is not None and not flushed:
-            pytest.fail("timed out flushing two-generator Pipeline spans to BlueGuardrails")
+            pytest.fail("timed out flushing two-generator Pipeline spans to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
-        assert len(spans) == 2, f"expected two BlueGuardrails spans, got {[span.name for span in spans]}"
+        assert len(spans) == 2, f"expected two Blue Guardrails spans, got {[span.name for span in spans]}"
 
         component_names = {span.attributes.get("haystack.component.name") for span in spans}
         assert component_names == set(TWO_GENERATOR_PIPELINE_PROMPTS)
@@ -810,7 +810,7 @@ def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
 
         flushed = provider.force_flush()
         if blueguardrails_live_export_config is not None and not flushed:
-            pytest.fail("timed out flushing run-tag span to BlueGuardrails")
+            pytest.fail("timed out flushing run-tag span to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
@@ -947,7 +947,7 @@ def test_real_haystack_agent_tracing(case: RealGeneratorCase, blueguardrails_liv
 
         flushed = provider.force_flush()
         if blueguardrails_live_export_config is not None and not flushed:
-            pytest.fail("timed out flushing Agent spans to BlueGuardrails")
+            pytest.fail("timed out flushing Agent spans to Blue Guardrails")
 
         tool_results = [message.tool_call_result for message in result["messages"] if message.tool_call_result]
         assert tool_results

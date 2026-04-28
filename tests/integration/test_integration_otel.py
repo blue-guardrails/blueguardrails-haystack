@@ -1,14 +1,14 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests: BlueGuardrails tracer alongside existing Haystack tracers.
+"""Integration tests: Blue Guardrails tracer alongside existing Haystack tracers.
 
 Verifies that the sidecar proxy correctly multiplexes spans so:
 - The user's existing tracing backend gets all standard Haystack spans
-- BlueGuardrails gets only Generator spans with GenAI semconv attributes
+- Blue Guardrails gets only Generator spans with GenAI semconv attributes
 - Neither tracer interferes with the other
-- Changing the user tracer after BlueGuardrails install doesn't break anything
+- Changing the user tracer after Blue Guardrails install doesn't break anything
 
 Covers both OpenTelemetry and Datadog-style (context-managed) tracers.
 """
@@ -120,10 +120,10 @@ class MockEndpointChatGenerator:
 
 
 def _make_blueguardrails_tracer():
-    """Create a BlueGuardrails tracer with an in-memory exporter.
+    """Create a Blue Guardrails tracer with an in-memory exporter.
 
     Returns:
-        BlueGuardrails tracer and in-memory exporter.
+        Blue Guardrails tracer and in-memory exporter.
     """
     blueguardrails_exporter = InMemorySpanExporter()
     blueguardrails_provider = TracerProvider(resource=Resource.create({"service.name": "blueguardrails"}))
@@ -146,10 +146,10 @@ def _make_user_otel_tracer():
 
 
 def _setup_tracers():
-    """Install user OTel tracing and BlueGuardrails tracing.
+    """Install user OTel tracing and Blue Guardrails tracing.
 
     Returns:
-        User exporter, BlueGuardrails exporter, and user tracer provider.
+        User exporter, Blue Guardrails exporter, and user tracer provider.
     """
     user_otel_tracer, user_exporter, user_provider = _make_user_otel_tracer()
     tracing.enable_tracing(user_otel_tracer)
@@ -183,10 +183,11 @@ class TestOtelCoexistence:
         user_span_names = [s.name for s in user_spans]
         assert len(user_spans) >= 2, f"Expected >=2 user spans, got: {user_span_names}"
 
-        # BlueGuardrails: gets exactly 1 generator span with GenAI semconv
+        # Blue Guardrails: gets exactly 1 generator span with GenAI semconv
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        span_names = [span.name for span in blueguardrails_spans]
         assert len(blueguardrails_spans) == 1, (
-            f"Expected 1 BlueGuardrails span, got {len(blueguardrails_spans)}: {[s.name for s in blueguardrails_spans]}"
+            f"Expected 1 Blue Guardrails span, got {len(blueguardrails_spans)}: {span_names}"
         )
 
         blueguardrails_span = blueguardrails_spans[0]
@@ -202,7 +203,7 @@ class TestOtelCoexistence:
         assert output_msgs[0]["role"] == "assistant"
 
     def test_user_otel_spans_not_polluted_with_genai_semconv(self):
-        """BlueGuardrails GenAI attributes must not leak into user's OTel spans."""
+        """Blue Guardrails GenAI attributes must not leak into user's OTel spans."""
         user_exporter, _, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -216,7 +217,7 @@ class TestOtelCoexistence:
                 )
 
     def test_blueguardrails_only_captures_generator_spans(self):
-        """BlueGuardrails must not create spans for non-generator components."""
+        """Blue Guardrails must not create spans for non-generator components."""
         user_exporter, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -238,13 +239,13 @@ class TestOtelCoexistence:
         user_spans = user_exporter.get_finished_spans()
         assert len(user_spans) >= 3, f"Expected >=3 user spans, got: {[s.name for s in user_spans]}"
 
-        # BlueGuardrails: only the generator
+        # Blue Guardrails: only the generator
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
         assert len(blueguardrails_spans) == 1
         assert blueguardrails_spans[0].name == "chat gpt-4o-mock"
 
     def test_blueguardrails_captures_content_even_when_content_tracing_disabled(self):
-        """BlueGuardrails must capture input/output even if HAYSTACK_CONTENT_TRACING_ENABLED is false."""
+        """Blue Guardrails must capture input/output even if HAYSTACK_CONTENT_TRACING_ENABLED is false."""
         os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "false"
         reset_haystack_tracing_state()
         user_exporter, blueguardrails_exporter, _ = _setup_tracers()
@@ -256,7 +257,7 @@ class TestOtelCoexistence:
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
         assert len(blueguardrails_spans) == 1
 
-        # BlueGuardrails still captures content
+        # Blue Guardrails still captures content
         assert "gen_ai.input.messages" in blueguardrails_spans[0].attributes
         assert "gen_ai.output.messages" in blueguardrails_spans[0].attributes
 
@@ -269,7 +270,7 @@ class TestOtelCoexistence:
                 )
 
     def test_pipeline_run_id_correlation(self):
-        """BlueGuardrails exposes the per-run correlation ID as the pipeline_run_id agent run tag."""
+        """Blue Guardrails exposes the per-run correlation ID as the pipeline_run_id agent run tag."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -306,7 +307,7 @@ class TestOtelCoexistence:
             )
 
     def test_blueguardrails_extracts_request_model_from_generator_instance(self):
-        """BlueGuardrails captures request/response model even when a generator output has no metadata."""
+        """Blue Guardrails captures request/response model even when a generator output has no metadata."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -323,7 +324,7 @@ class TestOtelCoexistence:
         assert json.loads(attrs["gen_ai.output.messages"])[0]["parts"][0]["content"] == "Plain response to: Hi"
 
     def test_blueguardrails_captures_image_outputs(self):
-        """BlueGuardrails captures multimodal image outputs as GenAI semconv uri/blob parts."""
+        """Blue Guardrails captures multimodal image outputs as GenAI semconv uri/blob parts."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -342,7 +343,7 @@ class TestOtelCoexistence:
         ]
 
     def test_blueguardrails_captures_init_generation_kwargs_and_tools(self):
-        """BlueGuardrails captures generator init-time generation_kwargs and tool definitions."""
+        """Blue Guardrails captures generator init-time generation_kwargs and tool definitions."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -370,7 +371,7 @@ class TestOtelCoexistence:
         ]
 
     def test_blueguardrails_captures_server_address_and_port_from_generator_endpoint(self):
-        """BlueGuardrails captures provider endpoint host/port from generator init-time config."""
+        """Blue Guardrails captures provider endpoint host/port from generator init-time config."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -382,7 +383,7 @@ class TestOtelCoexistence:
         assert attrs["server.port"] == 9443
 
     def test_runtime_generation_kwargs_and_tools_override_init_config(self):
-        """Runtime generation_kwargs/tools overwrite init-time config on the BlueGuardrails span."""
+        """Runtime generation_kwargs/tools overwrite init-time config on the Blue Guardrails span."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         runtime_tool = Tool(
@@ -410,7 +411,7 @@ class TestOtelCoexistence:
         assert json.loads(attrs["gen_ai.tool.definitions"])[0]["name"] == "runtime_lookup"
 
     def test_blueguardrails_span_does_not_hijack_otel_context(self):
-        """BlueGuardrails spans must not become current in the OTel context."""
+        """Blue Guardrails spans must not become current in the OTel context."""
         user_exporter, blueguardrails_exporter, user_provider = _setup_tracers()
 
         # Simulate: pipeline span → component span → auto-instrumented child
@@ -427,7 +428,7 @@ class TestOtelCoexistence:
                 with lib_tracer.start_as_current_span("openai.chat") as child:
                     child.set_attribute("test", "auto-instrumented")
 
-        # Auto-instrumented span is a child of user's component span, not BlueGuardrails span
+        # Auto-instrumented span is a child of user's component span, not Blue Guardrails span
         user_spans = user_exporter.get_finished_spans()
         child_spans = [s for s in user_spans if s.name == "openai.chat"]
         component_spans = [s for s in user_spans if s.name == "haystack.component.run"]
@@ -435,13 +436,13 @@ class TestOtelCoexistence:
         assert len(component_spans) == 1
         assert child_spans[0].parent.span_id == component_spans[0].context.span_id
 
-        # BlueGuardrails spans are roots
+        # Blue Guardrails spans are roots
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
         assert len(blueguardrails_spans) == 1
         assert blueguardrails_spans[0].parent is None
 
     def test_survives_later_enable_tracing(self):
-        """If someone calls enable_tracing() after BlueGuardrails, BlueGuardrails keeps working."""
+        """If someone calls enable_tracing() after Blue Guardrails, Blue Guardrails keeps working."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         # Simulate a later tracer installation (e.g., Langfuse)
@@ -452,7 +453,7 @@ class TestOtelCoexistence:
         pipe.add_component("llm", MockChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
 
-        # BlueGuardrails still captured the generator span
+        # Blue Guardrails still captured the generator span
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
         assert len(blueguardrails_spans) == 1
         assert blueguardrails_spans[0].attributes["gen_ai.operation.name"] == "chat"
@@ -462,7 +463,7 @@ class TestOtelCoexistence:
         assert len(new_user_spans) >= 2
 
     def test_disable_tracing_disables_blueguardrails_sidecar(self):
-        """disable_tracing() must suspend BlueGuardrails as well as the user tracer."""
+        """disable_tracing() must suspend Blue Guardrails as well as the user tracer."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         tracing.disable_tracing()
@@ -529,10 +530,10 @@ class FakeDatadogTracer(Tracer):
 
 
 def _setup_datadog_tracers():
-    """Install a Datadog-style tracer and BlueGuardrails tracing.
+    """Install a Datadog-style tracer and Blue Guardrails tracing.
 
     Returns:
-        Datadog-style tracer and BlueGuardrails exporter.
+        Datadog-style tracer and Blue Guardrails exporter.
     """
     dd_tracer = FakeDatadogTracer()
     tracing.enable_tracing(dd_tracer)
@@ -544,7 +545,7 @@ def _setup_datadog_tracers():
 
 
 class TestDatadogCoexistence:
-    """Verify BlueGuardrails tracer works alongside a Datadog-style tracer."""
+    """Verify Blue Guardrails tracer works alongside a Datadog-style tracer."""
 
     def setup_method(self):
         os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "true"
@@ -582,7 +583,7 @@ class TestDatadogCoexistence:
         assert blueguardrails_spans[0].attributes["gen_ai.response.model"] == "gpt-4o-mock"
 
     def test_datadog_spans_have_haystack_tags_not_genai(self):
-        """DD spans get standard Haystack tags; GenAI semconv stays in BlueGuardrails."""
+        """DD spans get standard Haystack tags; GenAI semconv stays in Blue Guardrails."""
         dd_tracer, _ = _setup_datadog_tracers()
 
         pipe = Pipeline()
@@ -597,7 +598,7 @@ class TestDatadogCoexistence:
         assert not any(k.startswith("gen_ai.") for k in llm_span.tags)
 
     def test_datadog_correlation_data_preserved(self):
-        """CompositeSpan returns DD's correlation data, not BlueGuardrails's."""
+        """CompositeSpan returns DD's correlation data, not Blue Guardrails'."""
         _setup_datadog_tracers()
 
         with tracing.tracer.trace(
@@ -607,7 +608,7 @@ class TestDatadogCoexistence:
             assert corr == {"dd.trace_id": "fake-123"}
 
     def test_datadog_raw_span_not_wrapped(self):
-        """CompositeSpan.raw_span() returns the DD span, not the BlueGuardrails OTel span."""
+        """CompositeSpan.raw_span() returns the DD span, not the Blue Guardrails OTel span."""
         _setup_datadog_tracers()
 
         with tracing.tracer.trace(

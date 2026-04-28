@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -184,7 +184,7 @@ class TestBlueGuardrailsConnector:
         assert tracing.tracer._blueguardrails_enabled
 
     def test_does_not_touch_actual_tracer(self):
-        """BlueGuardrails installs as a sidecar — actual_tracer stays user-owned."""
+        """Blue Guardrails installs as a sidecar — actual_tracer stays user-owned."""
         original = NullTracer()
         tracing.enable_tracing(original)
 
@@ -198,7 +198,7 @@ class TestBlueGuardrailsConnector:
         assert tracing.tracer.actual_tracer is original
 
     def test_survives_later_enable_tracing(self):
-        """If someone calls enable_tracing() after BlueGuardrails, BlueGuardrails keeps working."""
+        """If someone calls enable_tracing() after Blue Guardrails, Blue Guardrails keeps working."""
         BlueGuardrailsConnector(
             name="test",
             api_key=Secret.from_token("test-key"),
@@ -210,7 +210,7 @@ class TestBlueGuardrailsConnector:
         new_tracer = NullTracer()
         tracing.enable_tracing(new_tracer)
 
-        # BlueGuardrails sidecar is still installed, actual_tracer changed
+        # Blue Guardrails sidecar is still installed, actual_tracer changed
         assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
         assert tracing.tracer._blueguardrails_tracer is blueguardrails_tracer
         assert tracing.tracer.actual_tracer is new_tracer

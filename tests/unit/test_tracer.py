@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -635,7 +635,7 @@ class TestCompositeSpan:
 
 class TestBlueGuardrailsSidecarProxy:
     def _make_proxy(self):
-        """Create a proxy with BlueGuardrails and a user tracer.
+        """Create a proxy with Blue Guardrails and a user tracer.
 
         Returns:
             Proxy and in-memory span exporter.
@@ -648,7 +648,7 @@ class TestBlueGuardrailsSidecarProxy:
         return proxy, exporter
 
     def _make_blueguardrails_only_proxy(self):
-        """Create a proxy with BlueGuardrails and no user tracer.
+        """Create a proxy with Blue Guardrails and no user tracer.
 
         Returns:
             Proxy and in-memory span exporter.
@@ -660,7 +660,7 @@ class TestBlueGuardrailsSidecarProxy:
         proxy._blueguardrails_enabled = True
         return proxy, exporter
 
-    # --- Sidecar mode (user tracer + BlueGuardrails) ---
+    # --- Sidecar mode (user tracer + Blue Guardrails) ---
 
     def test_yields_composite_span_for_generator(self):
         proxy, _ = self._make_proxy()
@@ -668,7 +668,7 @@ class TestBlueGuardrailsSidecarProxy:
             assert isinstance(span, CompositeSpan)
 
     def test_yields_composite_span_for_non_generator(self):
-        """Even non-generator spans are composite (BlueGuardrails side is NullSpan)."""
+        """Even non-generator spans are composite (Blue Guardrails side is NullSpan)."""
         proxy, _ = self._make_proxy()
         with proxy.trace("haystack.component.run", tags={"haystack.component.type": "PromptBuilder"}) as span:
             assert isinstance(span, CompositeSpan)
@@ -732,7 +732,7 @@ class TestBlueGuardrailsSidecarProxy:
             with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}):
                 raise RuntimeError("user boom")
 
-    # --- BlueGuardrails-only mode (no user tracer) ---
+    # --- Blue Guardrails-only mode (no user tracer) ---
 
     def test_blueguardrails_only_yields_blueguardrails_span_for_generator(self):
         proxy, exporter = self._make_blueguardrails_only_proxy()
@@ -757,7 +757,7 @@ class TestBlueGuardrailsSidecarProxy:
         assert len(exporter.get_finished_spans()) == 0
 
     def test_blueguardrails_only_transitions_to_sidecar_on_enable_tracing(self):
-        """When a user tracer is installed after BlueGuardrails, switch to composite mode."""
+        """When a user tracer is installed after Blue Guardrails, switch to composite mode."""
         proxy, exporter = self._make_blueguardrails_only_proxy()
 
         # Install a user tracer
@@ -795,7 +795,7 @@ class TestConfigureBlueGuardrailsTracer:
         reset_haystack_tracing_state()
 
     def test_blueguardrails_only_creates_spans_without_user_tracer(self):
-        """BlueGuardrails works in standalone mode when no user tracer is installed."""
+        """Blue Guardrails works in standalone mode when no user tracer is installed."""
         provider, exporter = _make_provider_and_exporter()
         configure_blueguardrails_tracer(BlueGuardrailsTracer(provider))
 

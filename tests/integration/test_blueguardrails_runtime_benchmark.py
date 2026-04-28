@@ -1,13 +1,13 @@
-# SPDX-FileCopyrightText: 2025-present BlueGuardrails
+# SPDX-FileCopyrightText: 2025-present Blue Guardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime benchmark for Haystack pipeline runs with and without live BlueGuardrails tracing.
+"""Runtime benchmark for Haystack pipeline runs with and without live Blue Guardrails tracing.
 
 This benchmark uses a mock chat generator so LLM latency is deterministic and the
 measured delta is the tracing/export path rather than provider latency. By default
 it sends 100k+ character input and output messages on every measured run. It only
-runs when selected explicitly with pytest's benchmark marker and BlueGuardrails
+runs when selected explicitly with pytest's benchmark marker and Blue Guardrails
 live export is enabled, for example:
 
     uv run --extra integration pytest -m benchmark --blueguardrails-send-traces \
@@ -92,7 +92,7 @@ def _make_large_text(label: str, target_chars: int) -> str:
         return ""
     prefix = f"{label} chars={target_chars}\n"
     chunk = (
-        "BlueGuardrails tracing benchmark payload. "
+        "Blue Guardrails tracing benchmark payload. "
         "This deterministic text makes serialization/export overhead visible. "
     )
     repeats = max(0, (target_chars - len(prefix) + len(chunk) - 1) // len(chunk))
@@ -142,7 +142,7 @@ def _duration_stats(values: list[float]) -> dict[str, float]:
 def test_pipeline_runtime_with_and_without_live_blueguardrails_tracing(
     blueguardrails_live_export_config: Any | None, record_property: pytest.RecordProperty
 ) -> None:
-    """Measure pipeline runtime with and without live BlueGuardrails export.
+    """Measure pipeline runtime with and without live Blue Guardrails export.
 
     Args:
         blueguardrails_live_export_config: Live export configuration.
@@ -151,7 +151,7 @@ def test_pipeline_runtime_with_and_without_live_blueguardrails_tracing(
     if blueguardrails_live_export_config is None:
         pytest.skip(
             "enable with --blueguardrails-send-traces or BLUEGUARDRAILS_SEND_TRACES=1 to benchmark "
-            "live BlueGuardrails export"
+            "live Blue Guardrails export"
         )
 
     runs = _env_int("BLUEGUARDRAILS_BENCHMARK_RUNS", 30)
@@ -188,11 +188,11 @@ def test_pipeline_runtime_with_and_without_live_blueguardrails_tracing(
         traced_pipe = _make_pipeline(latency_seconds, response_text)
         for _ in range(warmup_runs):
             _run_pipeline_once(traced_pipe, prompt_text)
-        assert connector._provider.force_flush(), "timed out flushing warmup spans to BlueGuardrails"
+        assert connector._provider.force_flush(), "timed out flushing warmup spans to Blue Guardrails"
 
         traced_durations = _measure_pipeline_runtime(traced_pipe, runs, prompt_text)
         flush_started = time.perf_counter()
-        assert connector._provider.force_flush(), "timed out flushing measured spans to BlueGuardrails"
+        assert connector._provider.force_flush(), "timed out flushing measured spans to Blue Guardrails"
         flush_seconds = time.perf_counter() - flush_started
     finally:
         connector._provider.shutdown()
@@ -236,7 +236,7 @@ def test_pipeline_runtime_with_and_without_live_blueguardrails_tracing(
     }.items():
         record_property(key, value)
 
-    print("\nBlueGuardrails pipeline runtime benchmark:")
+    print("\nBlue Guardrails pipeline runtime benchmark:")
     print(json.dumps(summary, indent=2, sort_keys=True))
 
     max_median_ratio = os.getenv("BLUEGUARDRAILS_BENCHMARK_MAX_MEDIAN_OVERHEAD_RATIO")
