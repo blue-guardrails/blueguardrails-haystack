@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, Sp
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
 from blueguardrails_haystack.component_config import extract_component_config
-from blueguardrails_haystack.proxy import _BGSidecarProxy
+from blueguardrails_haystack.proxy import _BlueGuardrailsSidecarProxy
 
 
 @component
@@ -100,11 +100,11 @@ def recording_connector_exporter(monkeypatch):
 def _make_serde_pipeline(model: str = "serde-chat-model") -> Pipeline:
     pipe = Pipeline()
     pipe.add_component(
-        "bg",
+        "blueguardrails",
         BlueGuardrailsConnector(
             name="serde-pipeline",
             endpoint="http://localhost:4318/v1/traces",
-            api_key=Secret.from_env_var("BG_API_KEY", strict=False),
+            api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY", strict=False),
             tags={"suite": "serde"},
         ),
     )
@@ -179,12 +179,12 @@ class TestBlueGuardrailsConnector:
             api_key=Secret.from_token("test-key"),
             endpoint="http://localhost:4318/v1/traces",
         )
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is not None
-        assert tracing.tracer._bg_enabled
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is not None
+        assert tracing.tracer._blueguardrails_enabled
 
     def test_does_not_touch_actual_tracer(self):
-        """BG installs as a sidecar — actual_tracer stays user-owned."""
+        """Blue Guardrails installs as a sidecar — actual_tracer stays user-owned."""
         original = NullTracer()
         tracing.enable_tracing(original)
 
@@ -198,21 +198,21 @@ class TestBlueGuardrailsConnector:
         assert tracing.tracer.actual_tracer is original
 
     def test_survives_later_enable_tracing(self):
-        """If someone calls enable_tracing() after BG, BG keeps working."""
+        """If someone calls enable_tracing() after Blue Guardrails, Blue Guardrails keeps working."""
         BlueGuardrailsConnector(
             name="test",
             api_key=Secret.from_token("test-key"),
             endpoint="http://localhost:4318/v1/traces",
         )
-        bg_tracer = tracing.tracer._bg_tracer
+        blueguardrails_tracer = tracing.tracer._blueguardrails_tracer
 
         # Simulate a later tracer installation (e.g., Langfuse)
         new_tracer = NullTracer()
         tracing.enable_tracing(new_tracer)
 
-        # BG sidecar is still installed, actual_tracer changed
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is bg_tracer
+        # Blue Guardrails sidecar is still installed, actual_tracer changed
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is blueguardrails_tracer
         assert tracing.tracer.actual_tracer is new_tracer
 
     def test_idempotent_double_init(self):
@@ -221,7 +221,7 @@ class TestBlueGuardrailsConnector:
             api_key=Secret.from_token("test-key"),
             endpoint="http://localhost:4318/v1/traces",
         )
-        first_bg = tracing.tracer._bg_tracer
+        first_blueguardrails = tracing.tracer._blueguardrails_tracer
 
         BlueGuardrailsConnector(
             name="test",
@@ -230,8 +230,8 @@ class TestBlueGuardrailsConnector:
         )
 
         # Class swap is idempotent and identical config reuses the existing tracer
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is first_bg
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is first_blueguardrails
 
     def test_run_returns_name(self):
         connector = BlueGuardrailsConnector(
@@ -243,11 +243,11 @@ class TestBlueGuardrailsConnector:
         assert result == {"name": "my-pipeline"}
 
     def test_serialization_roundtrip(self):
-        with patch.dict(os.environ, {"BG_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {"BLUE_GUARDRAILS_API_KEY": "fake-key"}):
             connector = BlueGuardrailsConnector(
                 name="test",
                 endpoint="http://localhost:4318/v1/traces",
-                api_key=Secret.from_env_var("BG_API_KEY"),
+                api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
                 sample_rate=0.5,
                 tags={"env": "test"},
             )
@@ -258,7 +258,7 @@ class TestBlueGuardrailsConnector:
         assert data["init_parameters"]["tags"] == {"env": "test"}
         assert data["init_parameters"]["api_key"] == {
             "type": "env_var",
-            "env_vars": ["BG_API_KEY"],
+            "env_vars": ["BLUE_GUARDRAILS_API_KEY"],
             "strict": True,
         }
 
@@ -268,23 +268,23 @@ class TestBlueGuardrailsConnector:
             "init_parameters": {
                 "name": "test",
                 "endpoint": "http://localhost:4318/v1/traces",
-                "api_key": {"type": "env_var", "env_vars": ["BG_API_KEY"], "strict": False},
+                "api_key": {"type": "env_var", "env_vars": ["BLUE_GUARDRAILS_API_KEY"], "strict": False},
                 "sample_rate": 0.1,
                 "tags": None,
             },
         }
-        with patch.dict(os.environ, {"BG_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {"BLUE_GUARDRAILS_API_KEY": "fake-key"}):
             connector = BlueGuardrailsConnector.from_dict(data)
 
         assert connector.name == "test"
         assert connector.sample_rate == 0.1
 
     def test_connector_to_dict_from_dict_roundtrip_initializes_tracing(self, recording_connector_exporter, monkeypatch):
-        monkeypatch.setenv("BG_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
         connector = BlueGuardrailsConnector(
             name="serde-connector",
             endpoint="http://localhost:4318/v1/traces",
-            api_key=Secret.from_env_var("BG_API_KEY"),
+            api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
             sample_rate=1.0,
             tags={"suite": "serde"},
         )
@@ -295,7 +295,7 @@ class TestBlueGuardrailsConnector:
             "init_parameters": {
                 "name": "serde-connector",
                 "endpoint": "http://localhost:4318/v1/traces",
-                "api_key": {"type": "env_var", "env_vars": ["BG_API_KEY"], "strict": True},
+                "api_key": {"type": "env_var", "env_vars": ["BLUE_GUARDRAILS_API_KEY"], "strict": True},
                 "sample_rate": 1.0,
                 "tags": {"suite": "serde"},
             },
@@ -308,10 +308,14 @@ class TestBlueGuardrailsConnector:
         assert round_tripped.endpoint == "http://localhost:4318/v1/traces"
         assert round_tripped.sample_rate == 1.0
         assert round_tripped.tags == {"suite": "serde"}
-        assert round_tripped.api_key.to_dict() == {"type": "env_var", "env_vars": ["BG_API_KEY"], "strict": True}
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is not None
-        assert tracing.tracer._bg_enabled
+        assert round_tripped.api_key.to_dict() == {
+            "type": "env_var",
+            "env_vars": ["BLUE_GUARDRAILS_API_KEY"],
+            "strict": True,
+        }
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is not None
+        assert tracing.tracer._blueguardrails_enabled
 
         exporter = recording_connector_exporter.instances[-1]
         assert exporter.endpoint == "http://localhost:4318/v1/traces"
@@ -335,7 +339,7 @@ class TestBlueGuardrailsConnector:
         pipe = _make_serde_pipeline(model="from-dict-model")
         data = pipe.to_dict()
 
-        assert data["components"]["bg"]["type"] == (
+        assert data["components"]["blueguardrails"]["type"] == (
             "blueguardrails_haystack.components.connector.BlueGuardrailsConnector"
         )
         assert data["components"]["llm"]["type"].endswith("SerdeChatGenerator")
@@ -343,12 +347,12 @@ class TestBlueGuardrailsConnector:
         reset_haystack_tracing_state()
         loaded = Pipeline.from_dict(deepcopy(data))
 
-        assert isinstance(loaded.get_component("bg"), BlueGuardrailsConnector)
+        assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
         assert isinstance(loaded.get_component("llm"), SerdeChatGenerator)
         _assert_loaded_component_config(loaded, model="from-dict-model")
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is not None
-        assert tracing.tracer._bg_enabled
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is not None
+        assert tracing.tracer._blueguardrails_enabled
 
         _assert_loaded_pipeline_traces_chat_generator(
             loaded,
@@ -369,12 +373,12 @@ class TestBlueGuardrailsConnector:
         reset_haystack_tracing_state()
         loaded = Pipeline.loads(yaml_data)
 
-        assert isinstance(loaded.get_component("bg"), BlueGuardrailsConnector)
+        assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
         assert isinstance(loaded.get_component("llm"), SerdeChatGenerator)
         _assert_loaded_component_config(loaded, model="yaml-model")
-        assert tracing.tracer.__class__ is _BGSidecarProxy
-        assert tracing.tracer._bg_tracer is not None
-        assert tracing.tracer._bg_enabled
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is not None
+        assert tracing.tracer._blueguardrails_enabled
 
         _assert_loaded_pipeline_traces_chat_generator(
             loaded,

@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests: BG tracer alongside existing Haystack tracers.
+"""Integration tests: Blue Guardrails tracer alongside existing Haystack tracers.
 
 Verifies that the sidecar proxy correctly multiplexes spans so:
 - The user's existing tracing backend gets all standard Haystack spans
 - Blue Guardrails gets only Generator spans with GenAI semconv attributes
 - Neither tracer interferes with the other
-- Changing the user tracer after BG install doesn't break anything
+- Changing the user tracer after Blue Guardrails install doesn't break anything
 
 Covers both OpenTelemetry and Datadog-style (context-managed) tracers.
 """
@@ -31,8 +31,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from blueguardrails_haystack.proxy import configure_bg_tracer
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import configure_blueguardrails_tracer
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
 
 @component
@@ -119,17 +119,17 @@ class MockEndpointChatGenerator:
         return {"replies": [ChatMessage.from_assistant("endpoint response", meta={"model": self.model})]}
 
 
-def _make_bg_tracer():
+def _make_blueguardrails_tracer():
     """Create a Blue Guardrails tracer with an in-memory exporter.
 
     Returns:
         Blue Guardrails tracer and in-memory exporter.
     """
-    bg_exporter = InMemorySpanExporter()
-    bg_provider = TracerProvider(resource=Resource.create({"service.name": "bg"}))
-    bg_provider.add_span_processor(SimpleSpanProcessor(bg_exporter))
-    bg_tracer = BGTracer(bg_provider)
-    return bg_tracer, bg_exporter
+    blueguardrails_exporter = InMemorySpanExporter()
+    blueguardrails_provider = TracerProvider(resource=Resource.create({"service.name": "blueguardrails"}))
+    blueguardrails_provider.add_span_processor(SimpleSpanProcessor(blueguardrails_exporter))
+    blueguardrails_tracer = BlueGuardrailsTracer(blueguardrails_provider)
+    return blueguardrails_tracer, blueguardrails_exporter
 
 
 def _make_user_otel_tracer():
@@ -154,10 +154,10 @@ def _setup_tracers():
     user_otel_tracer, user_exporter, user_provider = _make_user_otel_tracer()
     tracing.enable_tracing(user_otel_tracer)
 
-    bg_tracer, bg_exporter = _make_bg_tracer()
-    configure_bg_tracer(bg_tracer)
+    blueguardrails_tracer, blueguardrails_exporter = _make_blueguardrails_tracer()
+    configure_blueguardrails_tracer(blueguardrails_tracer)
 
-    return user_exporter, bg_exporter, user_provider
+    return user_exporter, blueguardrails_exporter, user_provider
 
 
 class TestOtelCoexistence:
@@ -170,7 +170,7 @@ class TestOtelCoexistence:
         os.environ.pop("HAYSTACK_CONTENT_TRACING_ENABLED", None)
 
     def test_both_tracers_receive_correct_spans(self):
-        user_exporter, bg_exporter, _ = _setup_tracers()
+        user_exporter, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("llm", MockChatGenerator())
@@ -183,20 +183,23 @@ class TestOtelCoexistence:
         user_span_names = [s.name for s in user_spans]
         assert len(user_spans) >= 2, f"Expected >=2 user spans, got: {user_span_names}"
 
-        # BG: gets exactly 1 generator span with GenAI semconv
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1, f"Expected 1 BG span, got {len(bg_spans)}: {[s.name for s in bg_spans]}"
+        # Blue Guardrails: gets exactly 1 generator span with GenAI semconv
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        span_names = [span.name for span in blueguardrails_spans]
+        assert len(blueguardrails_spans) == 1, (
+            f"Expected 1 Blue Guardrails span, got {len(blueguardrails_spans)}: {span_names}"
+        )
 
-        bg_span = bg_spans[0]
-        assert bg_span.attributes["gen_ai.operation.name"] == "chat"
-        assert bg_span.attributes["gen_ai.response.model"] == "gpt-4o-mock"
-        assert bg_span.attributes["gen_ai.usage.input_tokens"] == 15
-        assert bg_span.attributes["gen_ai.usage.output_tokens"] == 8
+        blueguardrails_span = blueguardrails_spans[0]
+        assert blueguardrails_span.attributes["gen_ai.operation.name"] == "chat"
+        assert blueguardrails_span.attributes["gen_ai.response.model"] == "gpt-4o-mock"
+        assert blueguardrails_span.attributes["gen_ai.usage.input_tokens"] == 15
+        assert blueguardrails_span.attributes["gen_ai.usage.output_tokens"] == 8
 
-        input_msgs = json.loads(bg_span.attributes["gen_ai.input.messages"])
+        input_msgs = json.loads(blueguardrails_span.attributes["gen_ai.input.messages"])
         assert input_msgs[0]["role"] == "user"
 
-        output_msgs = json.loads(bg_span.attributes["gen_ai.output.messages"])
+        output_msgs = json.loads(blueguardrails_span.attributes["gen_ai.output.messages"])
         assert output_msgs[0]["role"] == "assistant"
 
     def test_user_otel_spans_not_polluted_with_genai_semconv(self):
@@ -213,9 +216,9 @@ class TestOtelCoexistence:
                     f"User's OTel span '{span.name}' has unexpected GenAI attribute '{attr_key}'"
                 )
 
-    def test_bg_only_captures_generator_spans(self):
-        """BG must not create spans for non-generator components."""
-        user_exporter, bg_exporter, _ = _setup_tracers()
+    def test_blueguardrails_only_captures_generator_spans(self):
+        """Blue Guardrails must not create spans for non-generator components."""
+        user_exporter, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("prompt_builder", ChatPromptBuilder())
@@ -236,27 +239,27 @@ class TestOtelCoexistence:
         user_spans = user_exporter.get_finished_spans()
         assert len(user_spans) >= 3, f"Expected >=3 user spans, got: {[s.name for s in user_spans]}"
 
-        # BG: only the generator
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        assert bg_spans[0].name == "chat gpt-4o-mock"
+        # Blue Guardrails: only the generator
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        assert blueguardrails_spans[0].name == "chat gpt-4o-mock"
 
-    def test_bg_captures_content_even_when_content_tracing_disabled(self):
-        """BG must capture input/output even if HAYSTACK_CONTENT_TRACING_ENABLED is false."""
+    def test_blueguardrails_captures_content_even_when_content_tracing_disabled(self):
+        """Blue Guardrails must capture input/output even if HAYSTACK_CONTENT_TRACING_ENABLED is false."""
         os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "false"
         reset_haystack_tracing_state()
-        user_exporter, bg_exporter, _ = _setup_tracers()
+        user_exporter, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("llm", MockChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("secret input")]}})
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
 
-        # BG still captures content
-        assert "gen_ai.input.messages" in bg_spans[0].attributes
-        assert "gen_ai.output.messages" in bg_spans[0].attributes
+        # Blue Guardrails still captures content
+        assert "gen_ai.input.messages" in blueguardrails_spans[0].attributes
+        assert "gen_ai.output.messages" in blueguardrails_spans[0].attributes
 
         # User's OTel should not have content tags because content tracing is off.
         content_keys = {"haystack.component.input", "haystack.component.output"}
@@ -267,21 +270,21 @@ class TestOtelCoexistence:
                 )
 
     def test_pipeline_run_id_correlation(self):
-        """BG exposes the per-run correlation ID as the pipeline_run_id agent run tag."""
-        _, bg_exporter, _ = _setup_tracers()
+        """Blue Guardrails exposes the per-run correlation ID as the pipeline_run_id agent run tag."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("llm", MockChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        assert "gen_ai.agent.run.tags.pipeline_run_id" in bg_spans[0].attributes
-        assert "haystack.pipeline.run_id" not in bg_spans[0].attributes
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        assert "gen_ai.agent.run.tags.pipeline_run_id" in blueguardrails_spans[0].attributes
+        assert "haystack.pipeline.run_id" not in blueguardrails_spans[0].attributes
 
     def test_component_name_is_added_as_conversation_tag(self):
         """Each generator span gets a component-name conversation tag."""
-        _, bg_exporter, _ = _setup_tracers()
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("first_llm", MockChatGenerator())
@@ -293,40 +296,42 @@ class TestOtelCoexistence:
             }
         )
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 2
-        attrs_by_component = {span.attributes["haystack.component.name"]: span.attributes for span in bg_spans}
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 2
+        attrs_by_component = {
+            span.attributes["haystack.component.name"]: span.attributes for span in blueguardrails_spans
+        }
         for component_name in ("first_llm", "second_llm"):
             assert (
                 attrs_by_component[component_name]["gen_ai.conversation.tags.haystack_component_name"] == component_name
             )
 
-    def test_bg_extracts_request_model_from_generator_instance(self):
-        """BG captures request/response model even when a generator output has no metadata."""
-        _, bg_exporter, _ = _setup_tracers()
+    def test_blueguardrails_extracts_request_model_from_generator_instance(self):
+        """Blue Guardrails captures request/response model even when a generator output has no metadata."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("gen", MockPlainGenerator())
         pipe.run({"gen": {"prompt": "Hi"}})
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        attrs = bg_spans[0].attributes
-        assert bg_spans[0].name == "text_completion plain-mock-model"
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        attrs = blueguardrails_spans[0].attributes
+        assert blueguardrails_spans[0].name == "text_completion plain-mock-model"
         assert attrs["gen_ai.request.model"] == "plain-mock-model"
         assert attrs["gen_ai.response.model"] == "plain-mock-model"
         assert json.loads(attrs["gen_ai.input.messages"])[0]["parts"][0]["content"] == "Hi"
         assert json.loads(attrs["gen_ai.output.messages"])[0]["parts"][0]["content"] == "Plain response to: Hi"
 
-    def test_bg_captures_image_outputs(self):
-        """BG captures multimodal image outputs as GenAI semconv uri/blob parts."""
-        _, bg_exporter, _ = _setup_tracers()
+    def test_blueguardrails_captures_image_outputs(self):
+        """Blue Guardrails captures multimodal image outputs as GenAI semconv uri/blob parts."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("image_gen", MockImageGenerator())
         pipe.run({"image_gen": {"prompt": "Draw a blue square"}})
 
-        span = bg_exporter.get_finished_spans()[0]
+        span = blueguardrails_exporter.get_finished_spans()[0]
         attrs = span.attributes
         assert attrs["gen_ai.output.type"] == "image"
         output_messages = json.loads(attrs["gen_ai.output.messages"])
@@ -337,17 +342,17 @@ class TestOtelCoexistence:
             }
         ]
 
-    def test_bg_captures_init_generation_kwargs_and_tools(self):
-        """BG captures generator init-time generation_kwargs and tool definitions."""
-        _, bg_exporter, _ = _setup_tracers()
+    def test_blueguardrails_captures_init_generation_kwargs_and_tools(self):
+        """Blue Guardrails captures generator init-time generation_kwargs and tool definitions."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("llm", MockInitConfigChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        attrs = bg_spans[0].attributes
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        attrs = blueguardrails_spans[0].attributes
         assert attrs["gen_ai.request.temperature"] == 0.25
         assert attrs["gen_ai.request.max_tokens"] == 17
 
@@ -365,21 +370,21 @@ class TestOtelCoexistence:
             }
         ]
 
-    def test_bg_captures_server_address_and_port_from_generator_endpoint(self):
-        """BG captures provider endpoint host/port from generator init-time config."""
-        _, bg_exporter, _ = _setup_tracers()
+    def test_blueguardrails_captures_server_address_and_port_from_generator_endpoint(self):
+        """Blue Guardrails captures provider endpoint host/port from generator init-time config."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
         pipe.add_component("llm", MockEndpointChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
 
-        attrs = bg_exporter.get_finished_spans()[0].attributes
+        attrs = blueguardrails_exporter.get_finished_spans()[0].attributes
         assert attrs["server.address"] == "llm-proxy.example.com"
         assert attrs["server.port"] == 9443
 
     def test_runtime_generation_kwargs_and_tools_override_init_config(self):
-        """Runtime generation_kwargs/tools overwrite init-time config on the BG span."""
-        _, bg_exporter, _ = _setup_tracers()
+        """Runtime generation_kwargs/tools overwrite init-time config on the Blue Guardrails span."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         runtime_tool = Tool(
             name="runtime_lookup",
@@ -400,14 +405,14 @@ class TestOtelCoexistence:
             }
         )
 
-        attrs = bg_exporter.get_finished_spans()[0].attributes
+        attrs = blueguardrails_exporter.get_finished_spans()[0].attributes
         assert attrs["gen_ai.request.temperature"] == 0.75
         assert attrs["gen_ai.request.max_tokens"] == 5
         assert json.loads(attrs["gen_ai.tool.definitions"])[0]["name"] == "runtime_lookup"
 
-    def test_bg_span_does_not_hijack_otel_context(self):
+    def test_blueguardrails_span_does_not_hijack_otel_context(self):
         """Blue Guardrails spans must not become current in the OTel context."""
-        user_exporter, bg_exporter, user_provider = _setup_tracers()
+        user_exporter, blueguardrails_exporter, user_provider = _setup_tracers()
 
         # Simulate: pipeline span → component span → auto-instrumented child
         lib_tracer = user_provider.get_tracer("openai.instrumentation")
@@ -423,7 +428,7 @@ class TestOtelCoexistence:
                 with lib_tracer.start_as_current_span("openai.chat") as child:
                     child.set_attribute("test", "auto-instrumented")
 
-        # Auto-instrumented span is a child of user's component span, not BG span
+        # Auto-instrumented span is a child of user's component span, not Blue Guardrails span
         user_spans = user_exporter.get_finished_spans()
         child_spans = [s for s in user_spans if s.name == "openai.chat"]
         component_spans = [s for s in user_spans if s.name == "haystack.component.run"]
@@ -431,14 +436,14 @@ class TestOtelCoexistence:
         assert len(component_spans) == 1
         assert child_spans[0].parent.span_id == component_spans[0].context.span_id
 
-        # BG spans are roots
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        assert bg_spans[0].parent is None
+        # Blue Guardrails spans are roots
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        assert blueguardrails_spans[0].parent is None
 
     def test_survives_later_enable_tracing(self):
-        """If someone calls enable_tracing() after BG, BG keeps working."""
-        _, bg_exporter, _ = _setup_tracers()
+        """If someone calls enable_tracing() after Blue Guardrails, Blue Guardrails keeps working."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         # Simulate a later tracer installation (e.g., Langfuse)
         new_user_tracer, new_user_exporter, _ = _make_user_otel_tracer()
@@ -448,18 +453,18 @@ class TestOtelCoexistence:
         pipe.add_component("llm", MockChatGenerator())
         pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
 
-        # BG still captured the generator span
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        assert bg_spans[0].attributes["gen_ai.operation.name"] == "chat"
+        # Blue Guardrails still captured the generator span
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        assert blueguardrails_spans[0].attributes["gen_ai.operation.name"] == "chat"
 
         # New user tracer got the Haystack spans
         new_user_spans = new_user_exporter.get_finished_spans()
         assert len(new_user_spans) >= 2
 
-    def test_disable_tracing_disables_bg_sidecar(self):
-        """disable_tracing() must suspend BG as well as the user tracer."""
-        _, bg_exporter, _ = _setup_tracers()
+    def test_disable_tracing_disables_blueguardrails_sidecar(self):
+        """disable_tracing() must suspend Blue Guardrails as well as the user tracer."""
+        _, blueguardrails_exporter, _ = _setup_tracers()
 
         tracing.disable_tracing()
         assert not tracing.is_tracing_enabled()
@@ -470,7 +475,7 @@ class TestOtelCoexistence:
         ) as span:
             span.set_content_tag("haystack.component.input", {"messages": [ChatMessage.from_user("Hi")]})
 
-        assert len(bg_exporter.get_finished_spans()) == 0
+        assert len(blueguardrails_exporter.get_finished_spans()) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -533,14 +538,14 @@ def _setup_datadog_tracers():
     dd_tracer = FakeDatadogTracer()
     tracing.enable_tracing(dd_tracer)
 
-    bg_tracer, bg_exporter = _make_bg_tracer()
-    configure_bg_tracer(bg_tracer)
+    blueguardrails_tracer, blueguardrails_exporter = _make_blueguardrails_tracer()
+    configure_blueguardrails_tracer(blueguardrails_tracer)
 
-    return dd_tracer, bg_exporter
+    return dd_tracer, blueguardrails_exporter
 
 
 class TestDatadogCoexistence:
-    """Verify BG tracer works alongside a Datadog-style tracer."""
+    """Verify Blue Guardrails tracer works alongside a Datadog-style tracer."""
 
     def setup_method(self):
         os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "true"
@@ -550,8 +555,8 @@ class TestDatadogCoexistence:
         reset_haystack_tracing_state()
         os.environ.pop("HAYSTACK_CONTENT_TRACING_ENABLED", None)
 
-    def test_datadog_gets_all_spans_bg_gets_only_generator(self):
-        dd_tracer, bg_exporter = _setup_datadog_tracers()
+    def test_datadog_gets_all_spans_blueguardrails_gets_only_generator(self):
+        dd_tracer, blueguardrails_exporter = _setup_datadog_tracers()
 
         pipe = Pipeline()
         pipe.add_component("prompt_builder", ChatPromptBuilder())
@@ -572,13 +577,13 @@ class TestDatadogCoexistence:
         assert any("pipeline" in op for op in dd_span_ops), f"Missing pipeline span in DD: {dd_span_ops}"
         assert len(dd_tracer.spans) >= 3, f"Expected >=3 DD spans, got: {dd_span_ops}"
 
-        bg_spans = bg_exporter.get_finished_spans()
-        assert len(bg_spans) == 1
-        assert bg_spans[0].attributes["gen_ai.operation.name"] == "chat"
-        assert bg_spans[0].attributes["gen_ai.response.model"] == "gpt-4o-mock"
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        assert blueguardrails_spans[0].attributes["gen_ai.operation.name"] == "chat"
+        assert blueguardrails_spans[0].attributes["gen_ai.response.model"] == "gpt-4o-mock"
 
     def test_datadog_spans_have_haystack_tags_not_genai(self):
-        """DD spans get standard Haystack tags; GenAI semconv stays in BG."""
+        """DD spans get standard Haystack tags; GenAI semconv stays in Blue Guardrails."""
         dd_tracer, _ = _setup_datadog_tracers()
 
         pipe = Pipeline()
@@ -593,7 +598,7 @@ class TestDatadogCoexistence:
         assert not any(k.startswith("gen_ai.") for k in llm_span.tags)
 
     def test_datadog_correlation_data_preserved(self):
-        """CompositeSpan returns DD's correlation data, not BG's."""
+        """CompositeSpan returns DD's correlation data, not Blue Guardrails'."""
         _setup_datadog_tracers()
 
         with tracing.tracer.trace(

@@ -22,7 +22,7 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import SpanKind, StatusCode
 
 from blueguardrails_haystack.semconv import infer_provider_name
-from blueguardrails_haystack.span import BGSpan
+from blueguardrails_haystack.span import BlueGuardrailsSpan
 
 _DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 _DEFAULT_SERVICE_NAME = "blueguardrails-haystack"
@@ -32,10 +32,10 @@ _RUN_ID_TAG_ATTRIBUTE = "gen_ai.agent.run.tags.pipeline_run_id"
 _CONVERSATION_TAG_ATTRIBUTE_PREFIX = "gen_ai.conversation.tags."
 _HAYSTACK_COMPONENT_NAME_CONVERSATION_TAG = f"{_CONVERSATION_TAG_ATTRIBUTE_PREFIX}haystack_component_name"
 
-_run_id_var: ContextVar[str | None] = ContextVar("bg_run_id", default=None)
+_run_id_var: ContextVar[str | None] = ContextVar("blueguardrails_run_id", default=None)
 
 
-class BGTracer(Tracer):
+class BlueGuardrailsTracer(Tracer):
     """Create OTel spans for Haystack generator components."""
 
     def __init__(self, provider: TracerProvider, conversation_tags: dict[str, str] | None = None) -> None:
@@ -88,7 +88,7 @@ class BGTracer(Tracer):
 
             otel_span.set_attribute(_HAYSTACK_COMPONENT_NAME_CONVERSATION_TAG, component_name)
 
-            span = BGSpan(otel_span, is_chat)
+            span = BlueGuardrailsSpan(otel_span, is_chat)
             if tags:
                 span.set_tags(tags)
 
@@ -107,9 +107,9 @@ class BGTracer(Tracer):
 
 
 def _resolve_api_key(api_key: str | Secret | None) -> str:
-    """Resolve an API key from an explicit value or ``BG_API_KEY``."""
+    """Resolve an API key from an explicit value or ``BLUE_GUARDRAILS_API_KEY``."""
     if api_key is None:
-        resolved_key = os.getenv("BG_API_KEY")
+        resolved_key = os.getenv("BLUE_GUARDRAILS_API_KEY")
     elif isinstance(api_key, Secret):
         resolved_key = api_key.resolve_value()
     else:
@@ -117,19 +117,20 @@ def _resolve_api_key(api_key: str | Secret | None) -> str:
 
     if not resolved_key or not resolved_key.strip():
         raise ValueError(
-            "Blue Guardrails API key is required. Set BG_API_KEY or pass api_key to configure_bg_tracer()."
+            "Blue Guardrails API key is required. Set BLUE_GUARDRAILS_API_KEY or pass api_key to "
+            "configure_blueguardrails_tracer()."
         )
     return resolved_key.strip()
 
 
-def create_bg_tracer(
+def create_blueguardrails_tracer(
     *,
     name: str,
     endpoint: str,
     api_key: str | Secret | None,
     sample_rate: float,
     tags: dict[str, str] | None,
-) -> BGTracer:
+) -> BlueGuardrailsTracer:
     """Create a Blue Guardrails tracer with the default OTLP exporter."""
     if not 0.0 <= sample_rate <= 1.0:
         raise ValueError("sample_rate must be between 0.0 and 1.0")
@@ -147,4 +148,4 @@ def create_bg_tracer(
     )
     exporter = OTLPSpanExporter(endpoint=endpoint, headers={"Authorization": f"Bearer {resolved_key}"})
     provider.add_span_processor(BatchSpanProcessor(exporter))
-    return BGTracer(provider, conversation_tags=tags)
+    return BlueGuardrailsTracer(provider, conversation_tags=tags)

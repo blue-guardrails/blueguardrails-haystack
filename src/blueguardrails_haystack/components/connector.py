@@ -14,8 +14,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
-from blueguardrails_haystack.proxy import configure_bg_tracer
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import configure_blueguardrails_tracer
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,10 @@ class BlueGuardrailsConnector:
 
             pipe = Pipeline()
             pipe.add_component(
-                "bg",
+                "blueguardrails",
                 BlueGuardrailsConnector(
                     name="my-pipeline",
-                    api_key=Secret.from_env_var("BG_API_KEY"),
+                    api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
                 ),
             )
             pipe.add_component("llm", OpenAIChatGenerator())
@@ -53,7 +53,7 @@ class BlueGuardrailsConnector:
         name: str,
         *,
         endpoint: str = _DEFAULT_ENDPOINT,
-        api_key: Secret | None = Secret.from_env_var("BG_API_KEY"),  # noqa: B008
+        api_key: Secret | None = Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),  # noqa: B008
         sample_rate: float = 1.0,
         tags: dict[str, str] | None = None,
     ) -> None:
@@ -95,7 +95,7 @@ class BlueGuardrailsConnector:
         exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
-        configure_bg_tracer(BGTracer(provider, conversation_tags=tags))
+        configure_blueguardrails_tracer(BlueGuardrailsTracer(provider, conversation_tags=tags))
 
         self._provider = provider
 

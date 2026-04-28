@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime benchmark for Haystack pipeline runs with and without live BG tracing.
+"""Runtime benchmark for Haystack pipeline runs with and without live Blue Guardrails tracing.
 
 This benchmark uses a mock chat generator so LLM latency is deterministic and the
 measured delta is the tracing/export path rather than provider latency. By default
@@ -10,7 +10,8 @@ it sends 100k+ character input and output messages on every measured run. It onl
 runs when selected explicitly with pytest's benchmark marker and Blue Guardrails
 live export is enabled, for example:
 
-    uv run --extra integration pytest -m benchmark --bg-send-traces tests/integration/test_bg_runtime_benchmark.py
+    uv run --extra integration pytest -m benchmark --blueguardrails-send-traces \
+        tests/integration/test_blueguardrails_runtime_benchmark.py
 """
 
 from __future__ import annotations
@@ -138,29 +139,34 @@ def _duration_stats(values: list[float]) -> dict[str, float]:
     }
 
 
-def test_pipeline_runtime_with_and_without_live_bg_tracing(
-    bg_live_export_config: Any | None, record_property: pytest.RecordProperty
+def test_pipeline_runtime_with_and_without_live_blueguardrails_tracing(
+    blueguardrails_live_export_config: Any | None, record_property: pytest.RecordProperty
 ) -> None:
     """Measure pipeline runtime with and without live Blue Guardrails export.
 
     Args:
-        bg_live_export_config: Live export configuration.
+        blueguardrails_live_export_config: Live export configuration.
         record_property: Pytest fixture for recording benchmark metrics.
     """
-    if bg_live_export_config is None:
-        pytest.skip("enable with --bg-send-traces or BG_SEND_TRACES=1 to benchmark live Blue Guardrails export")
+    if blueguardrails_live_export_config is None:
+        pytest.skip(
+            "enable with --blueguardrails-send-traces or BLUEGUARDRAILS_SEND_TRACES=1 to benchmark "
+            "live Blue Guardrails export"
+        )
 
-    runs = _env_int("BG_BENCHMARK_RUNS", 30)
-    warmup_runs = _env_int("BG_BENCHMARK_WARMUP_RUNS", 5)
-    latency_seconds = _env_float("BG_BENCHMARK_MOCK_LATENCY_MS", 1.0) / 1000
-    input_chars = _env_int("BG_BENCHMARK_INPUT_CHARS", 100_000)
-    output_chars = _env_int("BG_BENCHMARK_OUTPUT_CHARS", 100_000)
+    runs = _env_int("BLUEGUARDRAILS_BENCHMARK_RUNS", 30)
+    warmup_runs = _env_int("BLUEGUARDRAILS_BENCHMARK_WARMUP_RUNS", 5)
+    latency_seconds = _env_float("BLUEGUARDRAILS_BENCHMARK_MOCK_LATENCY_MS", 1.0) / 1000
+    input_chars = _env_int("BLUEGUARDRAILS_BENCHMARK_INPUT_CHARS", 100_000)
+    output_chars = _env_int("BLUEGUARDRAILS_BENCHMARK_OUTPUT_CHARS", 100_000)
     if runs < 2:
-        pytest.fail("BG_BENCHMARK_RUNS must be at least 2")
+        pytest.fail("BLUEGUARDRAILS_BENCHMARK_RUNS must be at least 2")
     if warmup_runs < 0:
-        pytest.fail("BG_BENCHMARK_WARMUP_RUNS must be non-negative")
+        pytest.fail("BLUEGUARDRAILS_BENCHMARK_WARMUP_RUNS must be non-negative")
     if input_chars < 0 or output_chars < 0:
-        pytest.fail("BG_BENCHMARK_INPUT_CHARS and BG_BENCHMARK_OUTPUT_CHARS must be non-negative")
+        pytest.fail(
+            "BLUEGUARDRAILS_BENCHMARK_INPUT_CHARS and BLUEGUARDRAILS_BENCHMARK_OUTPUT_CHARS must be non-negative"
+        )
 
     prompt_text = _make_large_text("benchmark input", input_chars) or BENCHMARK_PROMPT
     response_text = _make_large_text("benchmark output", output_chars) or BENCHMARK_RESPONSE
@@ -174,8 +180,8 @@ def test_pipeline_runtime_with_and_without_live_bg_tracing(
     _reset_haystack_tracing()
     connector = BlueGuardrailsConnector(
         name="pipeline-runtime-benchmark",
-        endpoint=bg_live_export_config.endpoint,
-        api_key=Secret.from_token(bg_live_export_config.api_key),
+        endpoint=blueguardrails_live_export_config.endpoint,
+        api_key=Secret.from_token(blueguardrails_live_export_config.api_key),
         tags={"benchmark": "pipeline_runtime", "generator": "mock_chat"},
     )
     try:
@@ -207,32 +213,32 @@ def test_pipeline_runtime_with_and_without_live_bg_tracing(
         "output_chars": len(response_text),
         "payload_chars_per_run": len(prompt_text) + len(response_text),
         "without_tracing": baseline_stats,
-        "with_bg_tracing": traced_stats,
+        "with_blueguardrails_tracing": traced_stats,
         "median_overhead_ms": median_overhead_ms,
         "mean_overhead_ms": mean_overhead_ms,
         "median_overhead_ratio": median_ratio,
         "mean_overhead_ratio": mean_ratio,
-        "bg_force_flush_ms": flush_seconds * 1000,
+        "blueguardrails_force_flush_ms": flush_seconds * 1000,
     }
 
     for key, value in {
-        "bg_benchmark_runs": runs,
-        "bg_benchmark_warmup_runs": warmup_runs,
-        "bg_benchmark_mock_latency_ms": latency_seconds * 1000,
-        "bg_benchmark_input_chars": len(prompt_text),
-        "bg_benchmark_output_chars": len(response_text),
-        "bg_benchmark_payload_chars_per_run": len(prompt_text) + len(response_text),
-        "bg_benchmark_without_tracing_median_ms": baseline_stats["median_ms"],
-        "bg_benchmark_with_tracing_median_ms": traced_stats["median_ms"],
-        "bg_benchmark_median_overhead_ms": median_overhead_ms,
-        "bg_benchmark_median_overhead_ratio": median_ratio,
-        "bg_benchmark_force_flush_ms": flush_seconds * 1000,
+        "blueguardrails_benchmark_runs": runs,
+        "blueguardrails_benchmark_warmup_runs": warmup_runs,
+        "blueguardrails_benchmark_mock_latency_ms": latency_seconds * 1000,
+        "blueguardrails_benchmark_input_chars": len(prompt_text),
+        "blueguardrails_benchmark_output_chars": len(response_text),
+        "blueguardrails_benchmark_payload_chars_per_run": len(prompt_text) + len(response_text),
+        "blueguardrails_benchmark_without_tracing_median_ms": baseline_stats["median_ms"],
+        "blueguardrails_benchmark_with_tracing_median_ms": traced_stats["median_ms"],
+        "blueguardrails_benchmark_median_overhead_ms": median_overhead_ms,
+        "blueguardrails_benchmark_median_overhead_ratio": median_ratio,
+        "blueguardrails_benchmark_force_flush_ms": flush_seconds * 1000,
     }.items():
         record_property(key, value)
 
     print("\nBlue Guardrails pipeline runtime benchmark:")
     print(json.dumps(summary, indent=2, sort_keys=True))
 
-    max_median_ratio = os.getenv("BG_BENCHMARK_MAX_MEDIAN_OVERHEAD_RATIO")
+    max_median_ratio = os.getenv("BLUEGUARDRAILS_BENCHMARK_MAX_MEDIAN_OVERHEAD_RATIO")
     if max_median_ratio is not None:
         assert median_ratio <= float(max_median_ratio)

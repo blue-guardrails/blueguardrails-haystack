@@ -25,7 +25,7 @@ The package supports Python 3.11 through 3.14.
 Set your Blue Guardrails API key:
 
 ```bash
-export BG_API_KEY="your-api-key"
+export BLUE_GUARDRAILS_API_KEY="your-api-key"
 ```
 
 Set your model provider credentials as usual. For example, set `OPENAI_API_KEY` when you use `OpenAIChatGenerator`.
@@ -50,7 +50,7 @@ pipe.add_component(
     "blueguardrails",
     BlueGuardrailsConnector(
         name="support-bot",
-        api_key=Secret.from_env_var("BG_API_KEY"),
+        api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
         tags={"environment": "development"},
     ),
 )
@@ -82,14 +82,14 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
 
-from blueguardrails_haystack import configure_bg_tracer
+from blueguardrails_haystack import configure_blueguardrails_tracer
 
 
 def get_weather(city: str) -> str:
     return f"The weather in {city} is sunny."
 
 
-configure_bg_tracer(
+configure_blueguardrails_tracer(
     name="support-agent",
     tags={"environment": "development"},
 )
@@ -122,10 +122,10 @@ print(result["last_message"].text)
 
 Blue Guardrails receives a trace for each generator call the agent makes.
 
-`configure_bg_tracer()` reads `BG_API_KEY` by default. If you don't set `BG_API_KEY`, pass `api_key` explicitly. It raises `ValueError` if neither is set:
+`configure_blueguardrails_tracer()` reads `BLUE_GUARDRAILS_API_KEY` by default. If you don't set `BLUE_GUARDRAILS_API_KEY`, pass `api_key` explicitly. It raises `ValueError` if neither is set:
 
 ```python
-configure_bg_tracer(name="support-agent", api_key="your-api-key")
+configure_blueguardrails_tracer(name="support-agent", api_key="your-api-key")
 ```
 
 ## Configure the connector
@@ -133,7 +133,7 @@ configure_bg_tracer(name="support-agent", api_key="your-api-key")
 ```python
 BlueGuardrailsConnector(
     name="production-rag",
-    api_key=Secret.from_env_var("BG_API_KEY"),
+    api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
     sample_rate=0.1,
     tags={"environment": "production", "team": "search"},
 )
@@ -142,7 +142,7 @@ BlueGuardrailsConnector(
 | Argument | Default | Description |
 | --- | --- | --- |
 | `name` | Required | Trace name shown in Blue Guardrails. |
-| `api_key` | `Secret.from_env_var("BG_API_KEY")` | API key for trace export. |
+| `api_key` | `Secret.from_env_var("BLUE_GUARDRAILS_API_KEY")` | API key for trace export. |
 | `endpoint` | `https://api.blueguardrails.com/v1/traces` | OpenTelemetry Protocol (OTLP) HTTP traces endpoint. |
 | `sample_rate` | `1.0` | Fraction of generator calls to export. Use a value between `0.0` and `1.0`. |
 | `tags` | `None` | Conversation tags attached to each exported generator span. |

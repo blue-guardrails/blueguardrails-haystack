@@ -19,9 +19,9 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 import blueguardrails_haystack.tracer as tracer_module
 from blueguardrails_haystack.component_config import extract_component_config
-from blueguardrails_haystack.proxy import _BGSidecarProxy, configure_bg_tracer
-from blueguardrails_haystack.span import BGSpan, CompositeSpan
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import _BlueGuardrailsSidecarProxy, configure_blueguardrails_tracer
+from blueguardrails_haystack.span import BlueGuardrailsSpan, CompositeSpan
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
 # --- Helpers ---
 
@@ -82,20 +82,20 @@ class ExplodingOtelSpan:
         raise RuntimeError("otel boom")
 
 
-class ExplodingBGTracer(Tracer):
+class ExplodingBlueGuardrailsTracer(Tracer):
     def __init__(self, phase: str) -> None:
         self.phase = phase
 
     @contextlib.contextmanager
     def trace(self, operation_name, tags=None, parent_span=None):
         if self.phase == "enter":
-            raise RuntimeError("bg enter boom")
+            raise RuntimeError("blueguardrails enter boom")
 
         try:
             yield FakeSpan()
         finally:
             if self.phase == "exit":
-                raise RuntimeError("bg exit boom")
+                raise RuntimeError("blueguardrails exit boom")
 
     def current_span(self):
         return None
@@ -179,20 +179,20 @@ class TestComponentConfigExtraction:
         assert config["server"] == {"address": "generativelanguage.googleapis.com", "port": 443}
 
 
-# --- BGTracer tests ---
+# --- BlueGuardrailsTracer tests ---
 
 
-class TestBGTracer:
+class TestBlueGuardrailsTracer:
     def test_creates_span_for_chat_generator(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
             "haystack.component.type": "OpenAIChatGenerator",
         }
         with tracer.trace("haystack.component.run", tags=tags) as span:
-            assert isinstance(span, BGSpan)
+            assert isinstance(span, BlueGuardrailsSpan)
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
@@ -202,14 +202,14 @@ class TestBGTracer:
 
     def test_creates_span_for_plain_generator(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "gen",
             "haystack.component.type": "OpenAIGenerator",
         }
         with tracer.trace("haystack.component.run", tags=tags) as span:
-            assert isinstance(span, BGSpan)
+            assert isinstance(span, BlueGuardrailsSpan)
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
@@ -217,7 +217,7 @@ class TestBGTracer:
 
     def test_yields_null_span_for_non_generator(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "retriever",
@@ -230,7 +230,7 @@ class TestBGTracer:
 
     def test_yields_null_span_for_pipeline_run(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         with tracer.trace("haystack.pipeline.run", tags={}) as span:
             assert isinstance(span, NullSpan)
@@ -239,7 +239,7 @@ class TestBGTracer:
 
     def test_pipeline_run_id_is_propagated_as_agent_run_tag(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         with tracer.trace("haystack.pipeline.run", tags={}):
             tags = {
@@ -256,7 +256,7 @@ class TestBGTracer:
 
     def test_conversation_tags_are_propagated(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider, conversation_tags={"env": "test", "customer": "acme"})
+        tracer = BlueGuardrailsTracer(provider, conversation_tags={"env": "test", "customer": "acme"})
 
         tags = {
             "haystack.component.name": "llm",
@@ -271,7 +271,7 @@ class TestBGTracer:
 
     def test_haystack_component_name_conversation_tag_is_propagated(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -284,15 +284,15 @@ class TestBGTracer:
         assert attrs["gen_ai.conversation.tags.haystack_component_name"] == "llm"
 
 
-class TestBGSpanContentMapping:
+class TestBlueGuardrailsSpanContentMapping:
     def test_set_tag_fail_open(self):
-        span = BGSpan(ExplodingOtelSpan(), is_chat=True)
+        span = BlueGuardrailsSpan(ExplodingOtelSpan(), is_chat=True)
 
         span.set_tag("haystack.component.name", "llm")
 
     def test_chat_input_messages(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -309,7 +309,7 @@ class TestBGSpanContentMapping:
 
     def test_chat_input_conversion_fail_open(self, monkeypatch):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         def _explode(messages: list[ChatMessage]) -> str:
             raise RuntimeError("convert boom")
@@ -328,7 +328,7 @@ class TestBGSpanContentMapping:
 
     def test_chat_output_messages_with_meta(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -356,7 +356,7 @@ class TestBGSpanContentMapping:
 
     def test_plain_generator_input_output(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "gen",
@@ -385,7 +385,7 @@ class TestBGSpanContentMapping:
 
     def test_openai_nested_cache_tokens_are_reported_without_double_counting(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -413,7 +413,7 @@ class TestBGSpanContentMapping:
 
     def test_openai_responses_nested_cache_tokens_are_reported_without_double_counting(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -441,7 +441,7 @@ class TestBGSpanContentMapping:
 
     def test_openai_usage_detail_attributes_include_nested_details(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -473,7 +473,7 @@ class TestBGSpanContentMapping:
 
     def test_deepseek_openai_compatible_cache_hit_tokens_are_reported_without_double_counting(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -502,7 +502,7 @@ class TestBGSpanContentMapping:
 
     def test_anthropic_cache_tokens_are_added_to_input_tokens(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -533,7 +533,7 @@ class TestBGSpanContentMapping:
 
     def test_bedrock_cache_tokens_are_added_to_input_tokens(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -565,7 +565,7 @@ class TestBGSpanContentMapping:
 
     def test_google_cached_content_is_not_double_counted_and_thoughts_are_output_tokens(self):
         provider, exporter = _make_provider_and_exporter()
-        tracer = BGTracer(provider)
+        tracer = BlueGuardrailsTracer(provider)
 
         tags = {
             "haystack.component.name": "llm",
@@ -601,39 +601,39 @@ class TestBGSpanContentMapping:
 class TestCompositeSpan:
     def test_set_tag_forwards_to_both(self):
         orig = FakeSpan()
-        bg = FakeSpan()
-        composite = CompositeSpan(orig, bg)
+        blueguardrails = FakeSpan()
+        composite = CompositeSpan(orig, blueguardrails)
 
         composite.set_tag("key", "value")
         assert orig.tags["key"] == "value"
-        assert bg.tags["key"] == "value"
+        assert blueguardrails.tags["key"] == "value"
 
     def test_set_content_tag_forwards_to_both(self):
         orig = FakeSpan()
-        bg = FakeSpan()
-        composite = CompositeSpan(orig, bg)
+        blueguardrails = FakeSpan()
+        composite = CompositeSpan(orig, blueguardrails)
 
         composite.set_content_tag("haystack.component.input", {"messages": []})
         assert orig.content_tags["haystack.component.input"] == {"messages": []}
-        assert bg.content_tags["haystack.component.input"] == {"messages": []}
+        assert blueguardrails.content_tags["haystack.component.input"] == {"messages": []}
 
     def test_raw_span_returns_original(self):
         orig = FakeSpan()
-        bg = FakeSpan()
-        composite = CompositeSpan(orig, bg)
+        blueguardrails = FakeSpan()
+        composite = CompositeSpan(orig, blueguardrails)
         assert composite.raw_span() == "fake_raw"
 
     def test_correlation_data_from_original(self):
         orig = FakeSpan()
-        bg = FakeSpan()
-        composite = CompositeSpan(orig, bg)
+        blueguardrails = FakeSpan()
+        composite = CompositeSpan(orig, blueguardrails)
         assert composite.get_correlation_data_for_logs() == {"fake": True}
 
 
 # --- Sidecar proxy tests ---
 
 
-class TestBGSidecarProxy:
+class TestBlueGuardrailsSidecarProxy:
     def _make_proxy(self):
         """Create a proxy with Blue Guardrails and a user tracer.
 
@@ -642,12 +642,12 @@ class TestBGSidecarProxy:
         """
         provider, exporter = _make_provider_and_exporter()
         proxy = ProxyTracer(provided_tracer=FakeTracer())
-        proxy.__class__ = _BGSidecarProxy
-        proxy._bg_tracer = BGTracer(provider)
-        proxy._bg_enabled = True
+        proxy.__class__ = _BlueGuardrailsSidecarProxy
+        proxy._blueguardrails_tracer = BlueGuardrailsTracer(provider)
+        proxy._blueguardrails_enabled = True
         return proxy, exporter
 
-    def _make_bg_only_proxy(self):
+    def _make_blueguardrails_only_proxy(self):
         """Create a proxy with Blue Guardrails and no user tracer.
 
         Returns:
@@ -655,12 +655,12 @@ class TestBGSidecarProxy:
         """
         provider, exporter = _make_provider_and_exporter()
         proxy = ProxyTracer(provided_tracer=NullTracer())
-        proxy.__class__ = _BGSidecarProxy
-        proxy._bg_tracer = BGTracer(provider)
-        proxy._bg_enabled = True
+        proxy.__class__ = _BlueGuardrailsSidecarProxy
+        proxy._blueguardrails_tracer = BlueGuardrailsTracer(provider)
+        proxy._blueguardrails_enabled = True
         return proxy, exporter
 
-    # --- Sidecar mode (user tracer + BG) ---
+    # --- Sidecar mode (user tracer + Blue Guardrails) ---
 
     def test_yields_composite_span_for_generator(self):
         proxy, _ = self._make_proxy()
@@ -668,7 +668,7 @@ class TestBGSidecarProxy:
             assert isinstance(span, CompositeSpan)
 
     def test_yields_composite_span_for_non_generator(self):
-        """Even non-generator spans are composite (BG side is NullSpan)."""
+        """Even non-generator spans are composite (Blue Guardrails side is NullSpan)."""
         proxy, _ = self._make_proxy()
         with proxy.trace("haystack.component.run", tags={"haystack.component.type": "PromptBuilder"}) as span:
             assert isinstance(span, CompositeSpan)
@@ -700,7 +700,7 @@ class TestBGSidecarProxy:
             ) as child_span:
                 assert isinstance(child_span, CompositeSpan)
 
-    def test_non_generator_does_not_create_bg_span(self):
+    def test_non_generator_does_not_create_blueguardrails_span(self):
         proxy, exporter = self._make_proxy()
         with proxy.trace(
             "haystack.component.run",
@@ -710,44 +710,44 @@ class TestBGSidecarProxy:
 
         assert len(exporter.get_finished_spans()) == 0
 
-    def test_bg_enter_failure_falls_back_to_user_span(self):
+    def test_blueguardrails_enter_failure_falls_back_to_user_span(self):
         proxy, _ = self._make_proxy()
-        proxy._bg_tracer = ExplodingBGTracer("enter")
+        proxy._blueguardrails_tracer = ExplodingBlueGuardrailsTracer("enter")
 
         with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}) as span:
             assert span is proxy.actual_tracer._span
 
-    def test_bg_exit_failure_is_swallowed(self):
+    def test_blueguardrails_exit_failure_is_swallowed(self):
         proxy, _ = self._make_proxy()
-        proxy._bg_tracer = ExplodingBGTracer("exit")
+        proxy._blueguardrails_tracer = ExplodingBlueGuardrailsTracer("exit")
 
         with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}) as span:
             assert isinstance(span, CompositeSpan)
 
-    def test_bg_exit_failure_does_not_hide_user_exception(self):
+    def test_blueguardrails_exit_failure_does_not_hide_user_exception(self):
         proxy, _ = self._make_proxy()
-        proxy._bg_tracer = ExplodingBGTracer("exit")
+        proxy._blueguardrails_tracer = ExplodingBlueGuardrailsTracer("exit")
 
         with pytest.raises(RuntimeError, match="user boom"):
             with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}):
                 raise RuntimeError("user boom")
 
-    # --- BG-only mode (no user tracer) ---
+    # --- Blue Guardrails-only mode (no user tracer) ---
 
-    def test_bg_only_yields_bg_span_for_generator(self):
-        proxy, exporter = self._make_bg_only_proxy()
+    def test_blueguardrails_only_yields_blueguardrails_span_for_generator(self):
+        proxy, exporter = self._make_blueguardrails_only_proxy()
         with proxy.trace(
             "haystack.component.run",
             tags={"haystack.component.type": "OpenAIChatGenerator", "haystack.component.name": "llm"},
         ) as span:
-            assert isinstance(span, BGSpan)
+            assert isinstance(span, BlueGuardrailsSpan)
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
         assert spans[0].attributes["gen_ai.operation.name"] == "chat"
 
-    def test_bg_only_yields_null_span_for_non_generator(self):
-        proxy, exporter = self._make_bg_only_proxy()
+    def test_blueguardrails_only_yields_null_span_for_non_generator(self):
+        proxy, exporter = self._make_blueguardrails_only_proxy()
         with proxy.trace(
             "haystack.component.run",
             tags={"haystack.component.type": "PromptBuilder", "haystack.component.name": "pb"},
@@ -756,9 +756,9 @@ class TestBGSidecarProxy:
 
         assert len(exporter.get_finished_spans()) == 0
 
-    def test_bg_only_transitions_to_sidecar_on_enable_tracing(self):
-        """When a user tracer is installed after BG, switch to composite mode."""
-        proxy, exporter = self._make_bg_only_proxy()
+    def test_blueguardrails_only_transitions_to_sidecar_on_enable_tracing(self):
+        """When a user tracer is installed after Blue Guardrails, switch to composite mode."""
+        proxy, exporter = self._make_blueguardrails_only_proxy()
 
         # Install a user tracer
         user_tracer = FakeTracer()
@@ -771,33 +771,33 @@ class TestBGSidecarProxy:
             assert isinstance(span, CompositeSpan)
             assert span._original is user_tracer._span
 
-    def test_bg_only_enter_failure_yields_null_span(self):
-        proxy, _ = self._make_bg_only_proxy()
-        proxy._bg_tracer = ExplodingBGTracer("enter")
+    def test_blueguardrails_only_enter_failure_yields_null_span(self):
+        proxy, _ = self._make_blueguardrails_only_proxy()
+        proxy._blueguardrails_tracer = ExplodingBlueGuardrailsTracer("enter")
 
         with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}) as span:
             assert isinstance(span, NullSpan)
 
-    def test_bg_only_exit_failure_does_not_hide_user_exception(self):
-        proxy, _ = self._make_bg_only_proxy()
-        proxy._bg_tracer = ExplodingBGTracer("exit")
+    def test_blueguardrails_only_exit_failure_does_not_hide_user_exception(self):
+        proxy, _ = self._make_blueguardrails_only_proxy()
+        proxy._blueguardrails_tracer = ExplodingBlueGuardrailsTracer("exit")
 
         with pytest.raises(RuntimeError, match="user boom"):
             with proxy.trace("haystack.component.run", tags={"haystack.component.type": "OpenAIChatGenerator"}):
                 raise RuntimeError("user boom")
 
 
-class TestConfigureBGTracer:
+class TestConfigureBlueGuardrailsTracer:
     def setup_method(self):
         reset_haystack_tracing_state()
 
     def teardown_method(self):
         reset_haystack_tracing_state()
 
-    def test_bg_only_creates_spans_without_user_tracer(self):
-        """BG works in standalone mode when no user tracer is installed."""
+    def test_blueguardrails_only_creates_spans_without_user_tracer(self):
+        """Blue Guardrails works in standalone mode when no user tracer is installed."""
         provider, exporter = _make_provider_and_exporter()
-        configure_bg_tracer(BGTracer(provider))
+        configure_blueguardrails_tracer(BlueGuardrailsTracer(provider))
 
         with tracing.tracer.trace(
             "haystack.component.run",
@@ -807,15 +807,15 @@ class TestConfigureBGTracer:
 
         assert len(exporter.get_finished_spans()) == 1
 
-    def test_default_configure_reads_bg_api_key(self, monkeypatch):
+    def test_default_configure_reads_blueguardrails_api_key(self, monkeypatch):
         RecordingOTLPSpanExporter.instances = []
-        monkeypatch.setenv("BG_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
         monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
         monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
 
-        bg_tracer = configure_bg_tracer(name="support-agent", tags={"env": "test"})
+        blueguardrails_tracer = configure_blueguardrails_tracer(name="support-agent", tags={"env": "test"})
 
-        assert isinstance(bg_tracer, BGTracer)
+        assert isinstance(blueguardrails_tracer, BlueGuardrailsTracer)
         exporter = RecordingOTLPSpanExporter.instances[-1]
         assert exporter.endpoint == "https://api.blueguardrails.com/v1/traces"
         assert exporter.headers == {"Authorization": "Bearer fake-key"}
@@ -833,30 +833,30 @@ class TestConfigureBGTracer:
 
     def test_default_configure_accepts_explicit_api_key(self, monkeypatch):
         RecordingOTLPSpanExporter.instances = []
-        monkeypatch.delenv("BG_API_KEY", raising=False)
+        monkeypatch.delenv("BLUE_GUARDRAILS_API_KEY", raising=False)
         monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
         monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
 
-        configure_bg_tracer(name="support-agent", api_key="explicit-key")
+        configure_blueguardrails_tracer(name="support-agent", api_key="explicit-key")
 
         exporter = RecordingOTLPSpanExporter.instances[-1]
         assert exporter.headers == {"Authorization": "Bearer explicit-key"}
 
     def test_default_configure_requires_api_key(self, monkeypatch):
-        monkeypatch.delenv("BG_API_KEY", raising=False)
+        monkeypatch.delenv("BLUE_GUARDRAILS_API_KEY", raising=False)
 
-        with pytest.raises(ValueError, match="BG_API_KEY"):
-            configure_bg_tracer()
+        with pytest.raises(ValueError, match="BLUE_GUARDRAILS_API_KEY"):
+            configure_blueguardrails_tracer()
 
     def test_default_configure_validates_sample_rate(self, monkeypatch):
-        monkeypatch.setenv("BG_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
 
         with pytest.raises(ValueError, match="sample_rate"):
-            configure_bg_tracer(sample_rate=1.1)
+            configure_blueguardrails_tracer(sample_rate=1.1)
 
-    def test_disable_tracing_suspends_bg(self):
+    def test_disable_tracing_suspends_blueguardrails(self):
         provider, exporter = _make_provider_and_exporter()
-        configure_bg_tracer(BGTracer(provider))
+        configure_blueguardrails_tracer(BlueGuardrailsTracer(provider))
 
         tracing.disable_tracing()
 
@@ -868,9 +868,9 @@ class TestConfigureBGTracer:
 
         assert len(exporter.get_finished_spans()) == 0
 
-    def test_enabling_null_tracer_suspends_bg(self):
+    def test_enabling_null_tracer_suspends_blueguardrails(self):
         provider, exporter = _make_provider_and_exporter()
-        configure_bg_tracer(BGTracer(provider))
+        configure_blueguardrails_tracer(BlueGuardrailsTracer(provider))
 
         tracing.enable_tracing(NullTracer())
 

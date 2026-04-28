@@ -39,7 +39,7 @@ def _is_str_list(value: object) -> TypeGuard[list[str]]:
     return is_list(value) and all(isinstance(item, str) for item in value)
 
 
-class BGSpan(Span):
+class BlueGuardrailsSpan(Span):
     """Map Haystack span tags to GenAI attributes on an OTel span."""
 
     def __init__(self, otel_span: Any, is_chat: bool) -> None:
@@ -263,15 +263,15 @@ class BGSpan(Span):
 class CompositeSpan(Span):
     """Forward span operations to the user's span and the Blue Guardrails span."""
 
-    def __init__(self, original: Span, bg: Span) -> None:
+    def __init__(self, original: Span, blueguardrails: Span) -> None:
         """Initialize a span that forwards to user and Blue Guardrails spans.
 
         Args:
             original: User-configured Haystack span.
-            bg: Blue Guardrails span.
+            blueguardrails: Blue Guardrails span.
         """
         self._original = original
-        self._bg = bg
+        self._blueguardrails = blueguardrails
 
     @property
     def original(self) -> Span:
@@ -279,19 +279,19 @@ class CompositeSpan(Span):
         return self._original
 
     @property
-    def bg(self) -> Span:
+    def blueguardrails(self) -> Span:
         """Return the wrapped Blue Guardrails span."""
-        return self._bg
+        return self._blueguardrails
 
     def set_tag(self, key: str, value: Any) -> None:
         """Forward a standard Haystack tag to both spans."""
         self._original.set_tag(key, value)
-        self._bg.set_tag(key, value)
+        self._blueguardrails.set_tag(key, value)
 
     def set_content_tag(self, key: str, value: Any) -> None:
         """Forward a Haystack content tag to both spans."""
         self._original.set_content_tag(key, value)
-        self._bg.set_content_tag(key, value)
+        self._blueguardrails.set_content_tag(key, value)
 
     def raw_span(self) -> Any:
         """Return the user's raw span."""

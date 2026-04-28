@@ -11,15 +11,16 @@ These tests make live provider calls. Select them with pytest's integration mark
 Set provider credentials in the usual Haystack environment variables or in a .env
 file loaded by python-dotenv. For Bedrock, `AWS_BEARER_TOKEN_BEDROCK` is also
 accepted for API key auth when a region is set. To also export the captured spans
-to Blue Guardrails, set BG_API_KEY and add --bg-send-traces:
+to Blue Guardrails, set BLUE_GUARDRAILS_API_KEY and add --blueguardrails-send-traces:
 
-    uv run --extra integration pytest -m integration --bg-send-traces tests/integration/test_real_generators.py
+    uv run --extra integration pytest -m integration --blueguardrails-send-traces \
+        tests/integration/test_real_generators.py
 
-You can also set BG_SEND_TRACES=1 in .env instead of passing the flag.
+You can also set BLUEGUARDRAILS_SEND_TRACES=1 in .env instead of passing the flag.
 
 To persist raw Haystack inputs/outputs and captured semconv attributes as JSON fixtures, add:
 
-    BG_RECORD_LLM_FIXTURES=1 BG_LLM_FIXTURE_DIR=tests/fixtures/llm_io ...
+    BLUEGUARDRAILS_RECORD_LLM_FIXTURES=1 BLUEGUARDRAILS_LLM_FIXTURE_DIR=tests/fixtures/llm_io ...
 """
 
 import base64
@@ -48,8 +49,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
-from blueguardrails_haystack.proxy import configure_bg_tracer
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import configure_blueguardrails_tracer
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
 pytestmark = pytest.mark.integration
 
@@ -65,8 +66,8 @@ TWO_GENERATOR_PIPELINE_PROMPTS = {
     "first_llm": "Reply with the exact phrase: blueguardrails first pipeline trace ok",
     "second_llm": "Reply with the exact phrase: blueguardrails second pipeline trace ok",
 }
-MAX_TOKENS = int(os.getenv("BG_LLM_MAX_TOKENS", "32"))
-AGENT_MAX_TOKENS = int(os.getenv("BG_LLM_AGENT_MAX_TOKENS", str(max(MAX_TOKENS, 64))))
+MAX_TOKENS = int(os.getenv("BLUEGUARDRAILS_LLM_MAX_TOKENS", "32"))
+AGENT_MAX_TOKENS = int(os.getenv("BLUEGUARDRAILS_LLM_AGENT_MAX_TOKENS", str(max(MAX_TOKENS, 64))))
 
 OPENAI_MODEL = "gpt-5.4-nano"
 ANTHROPIC_MODEL = "claude-haiku-4-5"
@@ -142,7 +143,7 @@ def _bedrock_credentials() -> tuple[bool, str]:
     if not (os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION")):
         return False, "missing AWS_DEFAULT_REGION or AWS_REGION"
 
-    if _truthy_env("BG_AWS_CREDENTIALS_CONFIGURED"):
+    if _truthy_env("BLUEGUARDRAILS_AWS_CREDENTIALS_CONFIGURED"):
         return True, ""
 
     has_bearer_token = bool(os.getenv("AWS_BEARER_TOKEN_BEDROCK"))
@@ -156,7 +157,7 @@ def _bedrock_credentials() -> tuple[bool, str]:
         return True, ""
     return False, (
         "missing AWS credentials; set AWS_BEARER_TOKEN_BEDROCK, AWS credentials, or "
-        "BG_AWS_CREDENTIALS_CONFIGURED=1 to rely on ambient AWS metadata"
+        "BLUEGUARDRAILS_AWS_CREDENTIALS_CONFIGURED=1 to rely on ambient AWS metadata"
     )
 
 
@@ -210,7 +211,7 @@ def _bedrock_text_init(model: str) -> dict[str, Any]:
         **_bedrock_auth_init_kwargs(),
         "max_length": MAX_TOKENS,
     }
-    model_family = os.getenv("BG_BEDROCK_TEXT_MODEL_FAMILY", "anthropic.claude")
+    model_family = os.getenv("BLUEGUARDRAILS_BEDROCK_TEXT_MODEL_FAMILY", "anthropic.claude")
     if model_family:
         kwargs["model_family"] = model_family
     return kwargs
@@ -239,7 +240,7 @@ CHAT_CASES = [
         class_path="haystack.components.generators.chat.openai:OpenAIChatGenerator",
         kind="chat",
         provider="openai",
-        model_env="BG_OPENAI_MODEL",
+        model_env="BLUEGUARDRAILS_OPENAI_MODEL",
         default_model=OPENAI_MODEL,
         init_kwargs=_openai_init,
         generation_kwargs={"max_completion_tokens": MAX_TOKENS},
@@ -250,7 +251,7 @@ CHAT_CASES = [
         class_path="haystack.components.generators.chat.azure:AzureOpenAIChatGenerator",
         kind="chat",
         provider="azure.ai.openai",
-        model_env="BG_AZURE_OPENAI_DEPLOYMENT",
+        model_env="BLUEGUARDRAILS_AZURE_OPENAI_DEPLOYMENT",
         default_model=OPENAI_MODEL,
         init_kwargs=_azure_init,
         generation_kwargs={"max_completion_tokens": MAX_TOKENS},
@@ -261,7 +262,7 @@ CHAT_CASES = [
         class_path="haystack.components.generators.chat.openai_responses:OpenAIResponsesChatGenerator",
         kind="chat",
         provider="openai",
-        model_env="BG_OPENAI_RESPONSES_MODEL",
+        model_env="BLUEGUARDRAILS_OPENAI_RESPONSES_MODEL",
         default_model=OPENAI_MODEL,
         init_kwargs=_openai_init,
         generation_kwargs={"max_output_tokens": MAX_TOKENS},
@@ -272,7 +273,7 @@ CHAT_CASES = [
         class_path="haystack.components.generators.chat.azure_responses:AzureOpenAIResponsesChatGenerator",
         kind="chat",
         provider="azure.ai.openai",
-        model_env="BG_AZURE_OPENAI_RESPONSES_DEPLOYMENT",
+        model_env="BLUEGUARDRAILS_AZURE_OPENAI_RESPONSES_DEPLOYMENT",
         default_model=OPENAI_MODEL,
         init_kwargs=_azure_responses_init,
         generation_kwargs={"max_output_tokens": MAX_TOKENS},
@@ -283,7 +284,7 @@ CHAT_CASES = [
         class_path="haystack_integrations.components.generators.anthropic:AnthropicChatGenerator",
         kind="chat",
         provider="anthropic",
-        model_env="BG_ANTHROPIC_MODEL",
+        model_env="BLUEGUARDRAILS_ANTHROPIC_MODEL",
         default_model=ANTHROPIC_MODEL,
         init_kwargs=_model_init,
         generation_kwargs={"max_tokens": MAX_TOKENS},
@@ -294,7 +295,7 @@ CHAT_CASES = [
         class_path="haystack_integrations.components.generators.google_genai:GoogleGenAIChatGenerator",
         kind="chat",
         provider="gcp.gemini",
-        model_env="BG_GOOGLE_MODEL",
+        model_env="BLUEGUARDRAILS_GOOGLE_MODEL",
         default_model=GOOGLE_MODEL,
         init_kwargs=_model_init,
         generation_kwargs={"max_output_tokens": MAX_TOKENS},
@@ -305,7 +306,7 @@ CHAT_CASES = [
         class_path="haystack_integrations.components.generators.amazon_bedrock:AmazonBedrockChatGenerator",
         kind="chat",
         provider="aws.bedrock",
-        model_env="BG_BEDROCK_MODEL",
+        model_env="BLUEGUARDRAILS_BEDROCK_MODEL",
         default_model=BEDROCK_MODEL,
         init_kwargs=_bedrock_init,
         generation_kwargs={"maxTokens": MAX_TOKENS},
@@ -319,7 +320,7 @@ TEXT_CASES = [
         class_path="haystack.components.generators.openai:OpenAIGenerator",
         kind="text",
         provider="openai",
-        model_env="BG_OPENAI_MODEL",
+        model_env="BLUEGUARDRAILS_OPENAI_MODEL",
         default_model=OPENAI_MODEL,
         init_kwargs=_openai_init,
         generation_kwargs={"max_completion_tokens": MAX_TOKENS},
@@ -330,7 +331,7 @@ TEXT_CASES = [
         class_path="haystack.components.generators.azure:AzureOpenAIGenerator",
         kind="text",
         provider="azure.ai.openai",
-        model_env="BG_AZURE_OPENAI_DEPLOYMENT",
+        model_env="BLUEGUARDRAILS_AZURE_OPENAI_DEPLOYMENT",
         default_model=OPENAI_MODEL,
         init_kwargs=_azure_init,
         generation_kwargs={"max_completion_tokens": MAX_TOKENS},
@@ -341,7 +342,7 @@ TEXT_CASES = [
         class_path="haystack_integrations.components.generators.anthropic:AnthropicGenerator",
         kind="text",
         provider="anthropic",
-        model_env="BG_ANTHROPIC_MODEL",
+        model_env="BLUEGUARDRAILS_ANTHROPIC_MODEL",
         default_model=ANTHROPIC_MODEL,
         init_kwargs=_model_init,
         generation_kwargs={"max_tokens": MAX_TOKENS},
@@ -352,7 +353,7 @@ TEXT_CASES = [
         class_path="haystack_integrations.components.generators.amazon_bedrock:AmazonBedrockGenerator",
         kind="text",
         provider="aws.bedrock",
-        model_env="BG_BEDROCK_TEXT_MODEL",
+        model_env="BLUEGUARDRAILS_BEDROCK_TEXT_MODEL",
         default_model=BEDROCK_MODEL,
         init_kwargs=_bedrock_text_init,
         generation_kwargs={"max_tokens": MAX_TOKENS},
@@ -431,35 +432,37 @@ def _streaming_generation_kwargs(case: RealGeneratorCase) -> dict[str, Any]:
     return {}
 
 
-def _make_bg_exporter(bg_live_export_config: Any | None) -> tuple[InMemorySpanExporter, TracerProvider]:
+def _make_blueguardrails_exporter(
+    blueguardrails_live_export_config: Any | None,
+) -> tuple[InMemorySpanExporter, TracerProvider]:
     exporter = InMemorySpanExporter()
     resource_attributes = {
-        "service.name": "bg-real-llm-tests",
+        "service.name": "blueguardrails-real-llm-tests",
         "haystack.pipeline.name": "blueguardrails-haystack-integration-tests",
         "test.suite": "real-llm-generators",
     }
-    if bg_live_export_config is not None:
+    if blueguardrails_live_export_config is not None:
         resource_attributes["blueguardrails.test.live_export"] = True
 
     provider = TracerProvider(resource=Resource.create(resource_attributes))
     provider.add_span_processor(SimpleSpanProcessor(exporter))
 
-    if bg_live_export_config is not None:
+    if blueguardrails_live_export_config is not None:
         provider.add_span_processor(
             BatchSpanProcessor(
                 OTLPSpanExporter(
-                    endpoint=bg_live_export_config.endpoint,
-                    headers={"Authorization": f"Bearer {bg_live_export_config.api_key}"},
+                    endpoint=blueguardrails_live_export_config.endpoint,
+                    headers={"Authorization": f"Bearer {blueguardrails_live_export_config.api_key}"},
                 )
             )
         )
 
-    configure_bg_tracer(BGTracer(provider))
+    configure_blueguardrails_tracer(BlueGuardrailsTracer(provider))
     return exporter, provider
 
 
 def _run_case(
-    case: RealGeneratorCase, bg_live_export_config: Any | None, variant: RealGeneratorRunVariant
+    case: RealGeneratorCase, blueguardrails_live_export_config: Any | None, variant: RealGeneratorRunVariant
 ) -> tuple[dict[str, Any], Any, str]:
     available, reason = case.credentials_available()
     if not available:
@@ -491,7 +494,7 @@ def _run_case(
         if streaming_generation_kwargs:
             run_input["generation_kwargs"] = streaming_generation_kwargs
 
-    exporter, provider = _make_bg_exporter(bg_live_export_config)
+    exporter, provider = _make_blueguardrails_exporter(blueguardrails_live_export_config)
     try:
         pipe = Pipeline()
         pipe.add_component("llm", generator)
@@ -502,11 +505,11 @@ def _run_case(
             assert streaming_chunks, "streaming callback should receive at least one chunk"
 
         flushed = provider.force_flush()
-        if bg_live_export_config is not None and not flushed:
+        if blueguardrails_live_export_config is not None and not flushed:
             pytest.fail("timed out flushing spans to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
-        assert len(spans) == 1, f"expected exactly one BG span, got {[span.name for span in spans]}"
+        assert len(spans) == 1, f"expected exactly one Blue Guardrails span, got {[span.name for span in spans]}"
         span = spans[0]
         _assert_semconv_span(case, span, model, streaming=variant.streaming)
         _record_fixture(case, model, init_kwargs, run_input, component_output, span, variant)
@@ -650,10 +653,10 @@ def _record_fixture(
     span: Any,
     variant: RealGeneratorRunVariant,
 ) -> None:
-    if not _truthy_env("BG_RECORD_LLM_FIXTURES"):
+    if not _truthy_env("BLUEGUARDRAILS_RECORD_LLM_FIXTURES"):
         return
 
-    fixture_dir = Path(os.getenv("BG_LLM_FIXTURE_DIR", "tests/fixtures/llm_io"))
+    fixture_dir = Path(os.getenv("BLUEGUARDRAILS_LLM_FIXTURE_DIR", "tests/fixtures/llm_io"))
     fixture_dir.mkdir(parents=True, exist_ok=True)
 
     attrs = {key: _jsonable(value) for key, value in span.attributes.items()}
@@ -689,40 +692,42 @@ def _record_fixture(
 @pytest.mark.parametrize("case", CHAT_CASES, ids=[case.id for case in CHAT_CASES])
 @pytest.mark.parametrize("variant", GENERATOR_RUN_VARIANTS, ids=[variant.id for variant in GENERATOR_RUN_VARIANTS])
 def test_real_chat_generator_tracing(
-    case: RealGeneratorCase, variant: RealGeneratorRunVariant, bg_live_export_config: Any | None
+    case: RealGeneratorCase, variant: RealGeneratorRunVariant, blueguardrails_live_export_config: Any | None
 ) -> None:
     """Verify each supported chat generator emits a complete GenAI span.
 
     Args:
         case: Generator test case.
         variant: Streaming or non-streaming run variant.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
-    _run_case(case, bg_live_export_config, variant)
+    _run_case(case, blueguardrails_live_export_config, variant)
 
 
 @pytest.mark.parametrize("case", TEXT_CASES, ids=[case.id for case in TEXT_CASES])
 @pytest.mark.parametrize("variant", GENERATOR_RUN_VARIANTS, ids=[variant.id for variant in GENERATOR_RUN_VARIANTS])
 def test_real_text_generator_tracing(
-    case: RealGeneratorCase, variant: RealGeneratorRunVariant, bg_live_export_config: Any | None
+    case: RealGeneratorCase, variant: RealGeneratorRunVariant, blueguardrails_live_export_config: Any | None
 ) -> None:
     """Verify each supported text generator emits a complete GenAI span.
 
     Args:
         case: Generator test case.
         variant: Streaming or non-streaming run variant.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
-    _run_case(case, bg_live_export_config, variant)
+    _run_case(case, blueguardrails_live_export_config, variant)
 
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
-def test_real_pipeline_with_two_chat_generators(case: RealGeneratorCase, bg_live_export_config: Any | None) -> None:
+def test_real_pipeline_with_two_chat_generators(
+    case: RealGeneratorCase, blueguardrails_live_export_config: Any | None
+) -> None:
     """Verify a two-generator pipeline emits correlated Blue Guardrails spans.
 
     Args:
         case: Generator test case.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
     available, reason = case.credentials_available()
     if not available:
@@ -738,7 +743,7 @@ def test_real_pipeline_with_two_chat_generators(case: RealGeneratorCase, bg_live
         init_kwargs.setdefault("tools", [_integration_test_tool()])
         return generator_cls(**init_kwargs)
 
-    exporter, provider = _make_bg_exporter(bg_live_export_config)
+    exporter, provider = _make_blueguardrails_exporter(blueguardrails_live_export_config)
     try:
         pipe = Pipeline()
         pipe.add_component("first_llm", _make_generator())
@@ -755,11 +760,11 @@ def test_real_pipeline_with_two_chat_generators(case: RealGeneratorCase, bg_live
             assert component_output["replies"], "each generator should produce at least one reply"
 
         flushed = provider.force_flush()
-        if bg_live_export_config is not None and not flushed:
+        if blueguardrails_live_export_config is not None and not flushed:
             pytest.fail("timed out flushing two-generator Pipeline spans to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
-        assert len(spans) == 2, f"expected two BG spans, got {[span.name for span in spans]}"
+        assert len(spans) == 2, f"expected two Blue Guardrails spans, got {[span.name for span in spans]}"
 
         component_names = {span.attributes.get("haystack.component.name") for span in spans}
         assert component_names == set(TWO_GENERATOR_PIPELINE_PROMPTS)
@@ -778,13 +783,13 @@ def test_real_pipeline_with_two_chat_generators(case: RealGeneratorCase, bg_live
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
 def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
-    case: RealGeneratorCase, bg_live_export_config: Any | None
+    case: RealGeneratorCase, blueguardrails_live_export_config: Any | None
 ) -> None:
     """Verify a chat generator span includes the pipeline run tag.
 
     Args:
         case: Generator test case.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
     available, reason = case.credentials_available()
     if not available:
@@ -797,14 +802,14 @@ def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
         init_kwargs["generation_kwargs"] = case.generation_kwargs
     generator = generator_cls(**init_kwargs)
 
-    exporter, provider = _make_bg_exporter(bg_live_export_config)
+    exporter, provider = _make_blueguardrails_exporter(blueguardrails_live_export_config)
     try:
         pipe = Pipeline()
         pipe.add_component("llm", generator)
         pipe.run({"llm": {"messages": [ChatMessage.from_user(PROMPT)]}})
 
         flushed = provider.force_flush()
-        if bg_live_export_config is not None and not flushed:
+        if blueguardrails_live_export_config is not None and not flushed:
             pytest.fail("timed out flushing run-tag span to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
@@ -819,14 +824,14 @@ def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
 def test_real_connector_tags_are_conversation_tags(
-    case: RealGeneratorCase, monkeypatch: pytest.MonkeyPatch, bg_live_export_config: Any | None
+    case: RealGeneratorCase, monkeypatch: pytest.MonkeyPatch, blueguardrails_live_export_config: Any | None
 ) -> None:
     """Verify connector tags become GenAI conversation tag attributes.
 
     Args:
         case: Generator test case.
         monkeypatch: Pytest monkeypatch fixture.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
     available, reason = case.credentials_available()
     if not available:
@@ -868,7 +873,9 @@ def test_real_connector_tags_are_conversation_tags(
     def _make_recording_exporter(endpoint: str, headers: dict[str, str]) -> RecordingExporter:
         nonlocal recording_exporter
         real_exporter = (
-            OTLPSpanExporter(endpoint=endpoint, headers=headers) if bg_live_export_config is not None else None
+            OTLPSpanExporter(endpoint=endpoint, headers=headers)
+            if blueguardrails_live_export_config is not None
+            else None
         )
         recording_exporter = RecordingExporter(real_exporter)
         return recording_exporter
@@ -879,9 +886,13 @@ def test_real_connector_tags_are_conversation_tags(
     connector = BlueGuardrailsConnector(
         name="real-generator-conversation-tags",
         endpoint=(
-            bg_live_export_config.endpoint if bg_live_export_config is not None else "http://localhost:4318/v1/traces"
+            blueguardrails_live_export_config.endpoint
+            if blueguardrails_live_export_config is not None
+            else "http://localhost:4318/v1/traces"
         ),
-        api_key=Secret.from_token(bg_live_export_config.api_key if bg_live_export_config is not None else "test-key"),
+        api_key=Secret.from_token(
+            blueguardrails_live_export_config.api_key if blueguardrails_live_export_config is not None else "test-key"
+        ),
         tags=tags,
     )
     try:
@@ -903,12 +914,12 @@ def test_real_connector_tags_are_conversation_tags(
 
 
 @pytest.mark.parametrize("case", AGENT_CASES, ids=[case.id for case in AGENT_CASES])
-def test_real_haystack_agent_tracing(case: RealGeneratorCase, bg_live_export_config: Any | None) -> None:
+def test_real_haystack_agent_tracing(case: RealGeneratorCase, blueguardrails_live_export_config: Any | None) -> None:
     """Verify a Haystack Agent emits GenAI spans for LLM calls.
 
     Args:
         case: Generator test case.
-        bg_live_export_config: Optional live export configuration.
+        blueguardrails_live_export_config: Optional live export configuration.
     """
     available, reason = case.credentials_available()
     if not available:
@@ -930,12 +941,12 @@ def test_real_haystack_agent_tracing(case: RealGeneratorCase, bg_live_export_con
         max_agent_steps=3,
     )
 
-    exporter, provider = _make_bg_exporter(bg_live_export_config)
+    exporter, provider = _make_blueguardrails_exporter(blueguardrails_live_export_config)
     try:
         result = agent.run(messages=[ChatMessage.from_user(AGENT_PROMPT)])
 
         flushed = provider.force_flush()
-        if bg_live_export_config is not None and not flushed:
+        if blueguardrails_live_export_config is not None and not flushed:
             pytest.fail("timed out flushing Agent spans to Blue Guardrails")
 
         tool_results = [message.tool_call_result for message in result["messages"] if message.tool_call_result]
