@@ -31,7 +31,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
+from blueguardrails_haystack.proxy import configure_bg_tracer
+from blueguardrails_haystack.tracer import BGTracer
 
 
 @component
@@ -154,7 +155,7 @@ def _setup_tracers():
     tracing.enable_tracing(user_otel_tracer)
 
     bg_tracer, bg_exporter = _make_bg_tracer()
-    install_bg_tracer(bg_tracer)
+    configure_bg_tracer(bg_tracer)
 
     return user_exporter, bg_exporter, user_provider
 
@@ -533,7 +534,7 @@ def _setup_datadog_tracers():
     tracing.enable_tracing(dd_tracer)
 
     bg_tracer, bg_exporter = _make_bg_tracer()
-    install_bg_tracer(bg_tracer)
+    configure_bg_tracer(bg_tracer)
 
     return dd_tracer, bg_exporter
 

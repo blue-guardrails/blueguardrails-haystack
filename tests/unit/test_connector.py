@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, Sp
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
 from blueguardrails_haystack.component_config import extract_component_config
-from blueguardrails_haystack.tracer import _BGSidecarProxy
+from blueguardrails_haystack.proxy import _BGSidecarProxy
 
 
 @component

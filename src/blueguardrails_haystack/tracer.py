@@ -5,49 +5,28 @@
 """Public tracing API for the Blue Guardrails Haystack sidecar."""
 
 import contextlib
+import os
 import uuid
 from collections.abc import Generator
 from contextvars import ContextVar
 from typing import Any
 
 from haystack.tracing.tracer import NullSpan, Span, Tracer
+from haystack.utils import Secret
 from opentelemetry.context import Context
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import SpanKind, StatusCode
 
-from blueguardrails_haystack._utils import (
-    first_present as _first_present,
-    mapping_numeric_items as _mapping_numeric_items,
-    nested_first_present as _nested_first_present,
-    snake_to_lower_camel as _snake_to_lower_camel,
-    to_int as _to_int,
-)
-from blueguardrails_haystack.component_config import (
-    _extract_component_config,
-    _extract_component_model,
-    _extract_component_request_options,
-    _extract_component_server,
-    _extract_component_tools,
-    _extract_options_from_object,
-    _extract_server_from_object,
-    _server_attrs_from_url,
-    extract_component_config,
-)
-from blueguardrails_haystack.semconv import (
-    convert_image_outputs_to_output_messages,
-    convert_input_messages,
-    convert_output_messages,
-    convert_parts_to_input_messages,
-    convert_parts_to_output_messages,
-    convert_plain_text_to_input_messages,
-    convert_plain_text_to_output_messages,
-    convert_tool_definitions,
-    extract_finish_reason,
-    infer_provider_name,
-    normalize_finish_reason,
-)
-from blueguardrails_haystack.span import BGSpan, CompositeSpan
+from blueguardrails_haystack.semconv import infer_provider_name
+from blueguardrails_haystack.span import BGSpan
 
+_DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
+_DEFAULT_SERVICE_NAME = "blueguardrails-haystack"
+_DEFAULT_TRACE_NAME = "blueguardrails-haystack"
 _PIPELINE_RUN_OPERATIONS = frozenset({"haystack.pipeline.run", "haystack.async_pipeline.run", "haystack.agent.run"})
 _RUN_ID_TAG_ATTRIBUTE = "gen_ai.agent.run.tags.pipeline_run_id"
 _CONVERSATION_TAG_ATTRIBUTE_PREFIX = "gen_ai.conversation.tags."
@@ -127,48 +106,45 @@ class BGTracer(Tracer):
         return None
 
 
-from blueguardrails_haystack.proxy import (  # noqa: E402
-    _BGSidecarProxy,
-    _enter_bg_trace,
-    _exit_bg_trace,
-    _patch_pipeline_component_span_for_models,
-    _set_bg_component_config,
-    install_bg_tracer,
-)
+def _resolve_api_key(api_key: str | Secret | None) -> str:
+    """Resolve an API key from an explicit value or ``BG_API_KEY``."""
+    if api_key is None:
+        resolved_key = os.getenv("BG_API_KEY")
+    elif isinstance(api_key, Secret):
+        resolved_key = api_key.resolve_value()
+    else:
+        resolved_key = api_key
 
-__all__ = [
-    "BGSpan",
-    "BGTracer",
-    "CompositeSpan",
-    "_BGSidecarProxy",
-    "_enter_bg_trace",
-    "_exit_bg_trace",
-    "_extract_component_config",
-    "_extract_component_model",
-    "_extract_component_request_options",
-    "_extract_component_server",
-    "_extract_component_tools",
-    "_extract_options_from_object",
-    "_extract_server_from_object",
-    "_first_present",
-    "_mapping_numeric_items",
-    "_nested_first_present",
-    "_patch_pipeline_component_span_for_models",
-    "_server_attrs_from_url",
-    "_set_bg_component_config",
-    "_snake_to_lower_camel",
-    "_to_int",
-    "convert_image_outputs_to_output_messages",
-    "convert_input_messages",
-    "convert_output_messages",
-    "convert_parts_to_input_messages",
-    "convert_parts_to_output_messages",
-    "convert_plain_text_to_input_messages",
-    "convert_plain_text_to_output_messages",
-    "convert_tool_definitions",
-    "extract_component_config",
-    "extract_finish_reason",
-    "infer_provider_name",
-    "install_bg_tracer",
-    "normalize_finish_reason",
-]
+    if not resolved_key or not resolved_key.strip():
+        raise ValueError(
+            "Blue Guardrails API key is required. Set BG_API_KEY or pass api_key to configure_bg_tracer()."
+        )
+    return resolved_key.strip()
+
+
+def create_bg_tracer(
+    *,
+    name: str,
+    endpoint: str,
+    api_key: str | Secret | None,
+    sample_rate: float,
+    tags: dict[str, str] | None,
+) -> BGTracer:
+    """Create a Blue Guardrails tracer with the default OTLP exporter."""
+    if not 0.0 <= sample_rate <= 1.0:
+        raise ValueError("sample_rate must be between 0.0 and 1.0")
+
+    resolved_key = _resolve_api_key(api_key)
+    resource = Resource.create(
+        {
+            "service.name": _DEFAULT_SERVICE_NAME,
+            "haystack.pipeline.name": name,
+        }
+    )
+    provider = TracerProvider(
+        sampler=TraceIdRatioBased(sample_rate),
+        resource=resource,
+    )
+    exporter = OTLPSpanExporter(endpoint=endpoint, headers={"Authorization": f"Bearer {resolved_key}"})
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    return BGTracer(provider, conversation_tags=tags)

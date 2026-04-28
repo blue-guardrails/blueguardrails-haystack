@@ -14,7 +14,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
-from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
+from blueguardrails_haystack.proxy import configure_bg_tracer
+from blueguardrails_haystack.tracer import BGTracer
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ class BlueGuardrailsConnector:
         exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
-        install_bg_tracer(BGTracer(provider, conversation_tags=tags))
+        configure_bg_tracer(BGTracer(provider, conversation_tags=tags))
 
         self._provider = provider
 

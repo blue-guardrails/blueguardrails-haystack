@@ -14,17 +14,14 @@ from haystack.tracing import Span, Tracer
 from haystack.tracing.tracer import NullSpan, NullTracer, ProxyTracer
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from blueguardrails_haystack.tracer import (
-    BGSpan,
-    BGTracer,
-    CompositeSpan,
-    _BGSidecarProxy,
-    _extract_component_config,
-    install_bg_tracer,
-)
+import blueguardrails_haystack.tracer as tracer_module
+from blueguardrails_haystack.component_config import extract_component_config
+from blueguardrails_haystack.proxy import _BGSidecarProxy, configure_bg_tracer
+from blueguardrails_haystack.span import BGSpan, CompositeSpan
+from blueguardrails_haystack.tracer import BGTracer
 
 # --- Helpers ---
 
@@ -104,13 +101,35 @@ class ExplodingBGTracer(Tracer):
         return None
 
 
+class RecordingOTLPSpanExporter(SpanExporter):
+    """OTLP exporter test double that records spans instead of exporting over HTTP."""
+
+    instances: list["RecordingOTLPSpanExporter"] = []
+
+    def __init__(self, endpoint: str, headers: dict[str, str] | None = None, **_: object) -> None:
+        self.endpoint = endpoint
+        self.headers = headers or {}
+        self.spans = []
+        self.instances.append(self)
+
+    def export(self, spans):
+        self.spans.extend(spans)
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
 class TestComponentConfigExtraction:
     def test_extracts_server_from_explicit_generator_base_url(self):
         class FakeGenerator:
             model = "test-model"
             api_base_url = "https://proxy.example.com:8443/v1"
 
-        config = _extract_component_config(FakeGenerator())
+        config = extract_component_config(FakeGenerator())
 
         assert config["server"] == {"address": "proxy.example.com", "port": 8443}
 
@@ -122,7 +141,7 @@ class TestComponentConfigExtraction:
             model = "test-model"
             client = FakeClient()
 
-        config = _extract_component_config(FakeGenerator())
+        config = extract_component_config(FakeGenerator())
 
         assert config["server"] == {"address": "api.openai.com", "port": 443}
 
@@ -137,7 +156,7 @@ class TestComponentConfigExtraction:
             model = "test-model"
             client = FakeClient()
 
-        config = _extract_component_config(FakeGenerator())
+        config = extract_component_config(FakeGenerator())
 
         assert config["server"] == {"address": "bedrock-runtime.us-east-1.amazonaws.com", "port": 443}
 
@@ -155,7 +174,7 @@ class TestComponentConfigExtraction:
             model = "test-model"
             _client = FakeClient()
 
-        config = _extract_component_config(FakeGenerator())
+        config = extract_component_config(FakeGenerator())
 
         assert config["server"] == {"address": "generativelanguage.googleapis.com", "port": 443}
 
@@ -768,7 +787,7 @@ class TestBGSidecarProxy:
                 raise RuntimeError("user boom")
 
 
-class TestInstallBGTracer:
+class TestConfigureBGTracer:
     def setup_method(self):
         reset_haystack_tracing_state()
 
@@ -778,7 +797,7 @@ class TestInstallBGTracer:
     def test_bg_only_creates_spans_without_user_tracer(self):
         """BG works in standalone mode when no user tracer is installed."""
         provider, exporter = _make_provider_and_exporter()
-        install_bg_tracer(BGTracer(provider))
+        configure_bg_tracer(BGTracer(provider))
 
         with tracing.tracer.trace(
             "haystack.component.run",
@@ -788,9 +807,56 @@ class TestInstallBGTracer:
 
         assert len(exporter.get_finished_spans()) == 1
 
+    def test_default_configure_reads_bg_api_key(self, monkeypatch):
+        RecordingOTLPSpanExporter.instances = []
+        monkeypatch.setenv("BG_API_KEY", "fake-key")
+        monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
+        monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
+
+        bg_tracer = configure_bg_tracer(name="support-agent", tags={"env": "test"})
+
+        assert isinstance(bg_tracer, BGTracer)
+        exporter = RecordingOTLPSpanExporter.instances[-1]
+        assert exporter.endpoint == "https://api.blueguardrails.com/v1/traces"
+        assert exporter.headers == {"Authorization": "Bearer fake-key"}
+
+        with tracing.tracer.trace(
+            "haystack.component.run",
+            tags={"haystack.component.type": "OpenAIChatGenerator", "haystack.component.name": "llm"},
+        ):
+            pass
+
+        assert len(exporter.spans) == 1
+        span = exporter.spans[0]
+        assert span.resource.attributes["haystack.pipeline.name"] == "support-agent"
+        assert span.attributes["gen_ai.conversation.tags.env"] == "test"
+
+    def test_default_configure_accepts_explicit_api_key(self, monkeypatch):
+        RecordingOTLPSpanExporter.instances = []
+        monkeypatch.delenv("BG_API_KEY", raising=False)
+        monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
+        monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
+
+        configure_bg_tracer(name="support-agent", api_key="explicit-key")
+
+        exporter = RecordingOTLPSpanExporter.instances[-1]
+        assert exporter.headers == {"Authorization": "Bearer explicit-key"}
+
+    def test_default_configure_requires_api_key(self, monkeypatch):
+        monkeypatch.delenv("BG_API_KEY", raising=False)
+
+        with pytest.raises(ValueError, match="BG_API_KEY"):
+            configure_bg_tracer()
+
+    def test_default_configure_validates_sample_rate(self, monkeypatch):
+        monkeypatch.setenv("BG_API_KEY", "fake-key")
+
+        with pytest.raises(ValueError, match="sample_rate"):
+            configure_bg_tracer(sample_rate=1.1)
+
     def test_disable_tracing_suspends_bg(self):
         provider, exporter = _make_provider_and_exporter()
-        install_bg_tracer(BGTracer(provider))
+        configure_bg_tracer(BGTracer(provider))
 
         tracing.disable_tracing()
 
@@ -804,7 +870,7 @@ class TestInstallBGTracer:
 
     def test_enabling_null_tracer_suspends_bg(self):
         provider, exporter = _make_provider_and_exporter()
-        install_bg_tracer(BGTracer(provider))
+        configure_bg_tracer(BGTracer(provider))
 
         tracing.enable_tracing(NullTracer())
 

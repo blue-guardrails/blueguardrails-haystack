@@ -5,9 +5,9 @@
 """Small shared normalization helpers."""
 
 from collections.abc import Iterable, Iterator, Mapping
-from typing import Any, TypeGuard
+from typing import Any, TypeAlias, TypeGuard
 
-type AnyMapping = Mapping[Any, Any]
+AnyMapping: TypeAlias = Mapping[Any, Any]
 
 
 def is_mapping(value: object) -> TypeGuard[AnyMapping]:
