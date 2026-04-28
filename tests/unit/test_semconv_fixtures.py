@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025-present Blue Guardrails
+# SPDX-FileCopyrightText: 2025-present BlueGuardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -25,7 +25,7 @@ from blueguardrails_haystack.semconv import (
 
 
 def _fixture_dir() -> Path:
-    return Path(os.getenv("BG_LLM_FIXTURE_DIR", "tests/fixtures/llm_io"))
+    return Path(os.getenv("BLUEGUARDRAILS_LLM_FIXTURE_DIR", "tests/fixtures/llm_io"))
 
 
 def _fixture_paths() -> list[Path]:
@@ -113,7 +113,8 @@ def test_recorded_llm_fixtures_replay_semconv_conversion() -> None:
     paths = _fixture_paths()
     if not paths:
         pytest.skip(
-            f"no LLM fixtures found in {_fixture_dir()}; set BG_RECORD_LLM_FIXTURES=1 when running integration tests"
+            f"no LLM fixtures found in {_fixture_dir()}; set BLUEGUARDRAILS_RECORD_LLM_FIXTURES=1 "
+            "when running integration tests"
         )
 
     for path in paths:

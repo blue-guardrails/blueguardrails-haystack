@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present Blue Guardrails
+# SPDX-FileCopyrightText: 2025-present BlueGuardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Haystack component that enables Blue Guardrails LLM tracing."""
+"""Haystack component that enables BlueGuardrails LLM tracing."""
 
 from typing import Any
 
@@ -14,8 +14,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
-from blueguardrails_haystack.proxy import configure_bg_tracer
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import configure_blueguardrails_tracer
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ _DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 
 @component
 class BlueGuardrailsConnector:
-    """Send Haystack generator traces to Blue Guardrails.
+    """Send Haystack generator traces to BlueGuardrails.
 
     Add this component to a pipeline without connecting it. It installs a sidecar
     tracer that exports GenAI spans while leaving the user's tracer in place.
@@ -39,10 +39,10 @@ class BlueGuardrailsConnector:
 
             pipe = Pipeline()
             pipe.add_component(
-                "bg",
+                "blueguardrails",
                 BlueGuardrailsConnector(
                     name="my-pipeline",
-                    api_key=Secret.from_env_var("BG_API_KEY"),
+                    api_key=Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),
                 ),
             )
             pipe.add_component("llm", OpenAIChatGenerator())
@@ -53,15 +53,15 @@ class BlueGuardrailsConnector:
         name: str,
         *,
         endpoint: str = _DEFAULT_ENDPOINT,
-        api_key: Secret | None = Secret.from_env_var("BG_API_KEY"),  # noqa: B008
+        api_key: Secret | None = Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),  # noqa: B008
         sample_rate: float = 1.0,
         tags: dict[str, str] | None = None,
     ) -> None:
         """Initialize the connector.
 
         Args:
-            name: Pipeline trace name shown in Blue Guardrails.
-            endpoint: Blue Guardrails OTLP trace endpoint.
+            name: Pipeline trace name shown in BlueGuardrails.
+            endpoint: BlueGuardrails OTLP trace endpoint.
             api_key: API key used to authorize trace export.
             sample_rate: Fraction of generator calls to trace, from 0.0 to 1.0.
             tags: Conversation tags attached to exported spans.
@@ -95,7 +95,7 @@ class BlueGuardrailsConnector:
         exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
-        configure_bg_tracer(BGTracer(provider, conversation_tags=tags))
+        configure_blueguardrails_tracer(BlueGuardrailsTracer(provider, conversation_tags=tags))
 
         self._provider = provider
 

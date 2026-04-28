@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2025-present Blue Guardrails
+# SPDX-FileCopyrightText: 2025-present BlueGuardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Public tracing API for the Blue Guardrails Haystack sidecar."""
+"""Public tracing API for the BlueGuardrails Haystack sidecar."""
 
 import contextlib
 import os
@@ -22,7 +22,7 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import SpanKind, StatusCode
 
 from blueguardrails_haystack.semconv import infer_provider_name
-from blueguardrails_haystack.span import BGSpan
+from blueguardrails_haystack.span import BlueGuardrailsSpan
 
 _DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 _DEFAULT_SERVICE_NAME = "blueguardrails-haystack"
@@ -32,17 +32,17 @@ _RUN_ID_TAG_ATTRIBUTE = "gen_ai.agent.run.tags.pipeline_run_id"
 _CONVERSATION_TAG_ATTRIBUTE_PREFIX = "gen_ai.conversation.tags."
 _HAYSTACK_COMPONENT_NAME_CONVERSATION_TAG = f"{_CONVERSATION_TAG_ATTRIBUTE_PREFIX}haystack_component_name"
 
-_run_id_var: ContextVar[str | None] = ContextVar("bg_run_id", default=None)
+_run_id_var: ContextVar[str | None] = ContextVar("blueguardrails_run_id", default=None)
 
 
-class BGTracer(Tracer):
+class BlueGuardrailsTracer(Tracer):
     """Create OTel spans for Haystack generator components."""
 
     def __init__(self, provider: TracerProvider, conversation_tags: dict[str, str] | None = None) -> None:
         """Initialize the tracer.
 
         Args:
-            provider: OpenTelemetry tracer provider used for Blue Guardrails spans.
+            provider: OpenTelemetry tracer provider used for BlueGuardrails spans.
             conversation_tags: Tags to attach to every exported GenAI span.
         """
         self._tracer = provider.get_tracer("blueguardrails-haystack")
@@ -73,7 +73,7 @@ class BGTracer(Tracer):
         component_name = str(tags.get("haystack.component.name", "unknown") or "unknown")
         provider_name = infer_provider_name(component_type)
 
-        # Start a root span so Blue Guardrails does not change the user's active OTel context.
+        # Start a root span so BlueGuardrails does not change the user's active OTel context.
         otel_span = self._tracer.start_span(name=f"{op_name} {component_name}", kind=SpanKind.CLIENT, context=Context())
         try:
             otel_span.set_attribute("gen_ai.operation.name", op_name)
@@ -88,7 +88,7 @@ class BGTracer(Tracer):
 
             otel_span.set_attribute(_HAYSTACK_COMPONENT_NAME_CONVERSATION_TAG, component_name)
 
-            span = BGSpan(otel_span, is_chat)
+            span = BlueGuardrailsSpan(otel_span, is_chat)
             if tags:
                 span.set_tags(tags)
 
@@ -107,9 +107,9 @@ class BGTracer(Tracer):
 
 
 def _resolve_api_key(api_key: str | Secret | None) -> str:
-    """Resolve an API key from an explicit value or ``BG_API_KEY``."""
+    """Resolve an API key from an explicit value or ``BLUEGUARDRAILS_API_KEY``."""
     if api_key is None:
-        resolved_key = os.getenv("BG_API_KEY")
+        resolved_key = os.getenv("BLUEGUARDRAILS_API_KEY")
     elif isinstance(api_key, Secret):
         resolved_key = api_key.resolve_value()
     else:
@@ -117,20 +117,21 @@ def _resolve_api_key(api_key: str | Secret | None) -> str:
 
     if not resolved_key or not resolved_key.strip():
         raise ValueError(
-            "Blue Guardrails API key is required. Set BG_API_KEY or pass api_key to configure_bg_tracer()."
+            "BlueGuardrails API key is required. Set BLUEGUARDRAILS_API_KEY or pass api_key to "
+            "configure_blueguardrails_tracer()."
         )
     return resolved_key.strip()
 
 
-def create_bg_tracer(
+def create_blueguardrails_tracer(
     *,
     name: str,
     endpoint: str,
     api_key: str | Secret | None,
     sample_rate: float,
     tags: dict[str, str] | None,
-) -> BGTracer:
-    """Create a Blue Guardrails tracer with the default OTLP exporter."""
+) -> BlueGuardrailsTracer:
+    """Create a BlueGuardrails tracer with the default OTLP exporter."""
     if not 0.0 <= sample_rate <= 1.0:
         raise ValueError("sample_rate must be between 0.0 and 1.0")
 
@@ -147,4 +148,4 @@ def create_bg_tracer(
     )
     exporter = OTLPSpanExporter(endpoint=endpoint, headers={"Authorization": f"Bearer {resolved_key}"})
     provider.add_span_processor(BatchSpanProcessor(exporter))
-    return BGTracer(provider, conversation_tags=tags)
+    return BlueGuardrailsTracer(provider, conversation_tags=tags)

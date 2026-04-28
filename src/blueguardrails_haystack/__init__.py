@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: 2025-present Blue Guardrails
+# SPDX-FileCopyrightText: 2025-present BlueGuardrails
 #
 # SPDX-License-Identifier: Apache-2.0
 
 from blueguardrails_haystack.components.connector import BlueGuardrailsConnector
-from blueguardrails_haystack.proxy import configure_bg_tracer
-from blueguardrails_haystack.tracer import BGTracer
+from blueguardrails_haystack.proxy import configure_blueguardrails_tracer
+from blueguardrails_haystack.tracer import BlueGuardrailsTracer
 
-__all__ = ["BGTracer", "BlueGuardrailsConnector", "configure_bg_tracer"]
+__all__ = ["BlueGuardrailsTracer", "BlueGuardrailsConnector", "configure_blueguardrails_tracer"]
