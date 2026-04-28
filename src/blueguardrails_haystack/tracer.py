@@ -6,16 +6,14 @@
 
 import contextlib
 import uuid
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextvars import ContextVar
 from typing import Any
 
+from haystack.tracing.tracer import NullSpan, Span, Tracer
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import SpanKind, StatusCode
-
-from haystack.tracing import Span, Tracer
-from haystack.tracing.tracer import NullSpan
 
 from blueguardrails_haystack._utils import (
     first_present as _first_present,
@@ -62,13 +60,19 @@ class BGTracer(Tracer):
     """Create OTel spans for Haystack generator components."""
 
     def __init__(self, provider: TracerProvider, conversation_tags: dict[str, str] | None = None) -> None:
+        """Initialize the tracer.
+
+        Args:
+            provider: OpenTelemetry tracer provider used for Blue Guardrails spans.
+            conversation_tags: Tags to attach to every exported GenAI span.
+        """
         self._tracer = provider.get_tracer("blueguardrails-haystack")
         self._conversation_tags = conversation_tags or {}
 
     @contextlib.contextmanager
     def trace(
         self, operation_name: str, tags: dict[str, Any] | None = None, parent_span: Span | None = None
-    ) -> Iterator[Span]:
+    ) -> Generator[Span]:
         """Trace a Haystack operation when it is a generator run."""
         tags = tags or {}
         component_type = tags.get("haystack.component.type", "")
@@ -119,6 +123,7 @@ class BGTracer(Tracer):
             otel_span.end()
 
     def current_span(self) -> Span | None:
+        """Return the current span for Haystack's tracing API."""
         return None
 
 

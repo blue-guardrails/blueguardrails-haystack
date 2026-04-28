@@ -6,14 +6,13 @@
 
 from typing import Any
 
+from haystack import component, default_from_dict, default_to_dict, logging
+from haystack.utils import Secret, deserialize_secrets_inplace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-
-from haystack import component, default_from_dict, default_to_dict, logging
-from haystack.utils import Secret, deserialize_secrets_inplace
 
 from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
 
@@ -82,10 +81,12 @@ class BlueGuardrailsConnector:
                 headers["Authorization"] = f"Bearer {resolved_key}"
 
         # Use an isolated provider so existing OTel configuration is not affected.
-        resource = Resource.create({
-            "service.name": "blueguardrails-haystack",
-            "haystack.pipeline.name": name,
-        })
+        resource = Resource.create(
+            {
+                "service.name": "blueguardrails-haystack",
+                "haystack.pipeline.name": name,
+            }
+        )
         provider = TracerProvider(
             sampler=TraceIdRatioBased(sample_rate),
             resource=resource,

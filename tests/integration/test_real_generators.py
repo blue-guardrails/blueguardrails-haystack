@@ -31,28 +31,26 @@ import os
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
 import pytest
+from conftest import reset_haystack_tracing_state
+from haystack import Pipeline
+from haystack.components.agents import Agent
+from haystack.dataclasses import ChatMessage
+from haystack.tools import Tool
+from haystack.utils import Secret
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from haystack import Pipeline, tracing
-from haystack.components.agents import Agent
-from haystack.dataclasses import ChatMessage
-from haystack.tools import Tool
-from haystack.utils import Secret
-
 import blueguardrails_haystack.components.connector as connector_module
 from blueguardrails_haystack import BlueGuardrailsConnector
 from blueguardrails_haystack.tracer import BGTracer, install_bg_tracer
-
-from conftest import reset_haystack_tracing_state
 
 pytestmark = pytest.mark.integration
 
@@ -672,7 +670,7 @@ def _record_fixture(
         "provider": case.provider,
         "model": model,
         "variant": {"id": variant.id, "streaming": variant.streaming},
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "raw_init": _jsonable(init_kwargs),
         "raw_input": _jsonable(run_input),
         "raw_output": _jsonable(output),
@@ -720,9 +718,7 @@ def test_real_text_generator_tracing(
 
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
-def test_real_pipeline_with_two_chat_generators(
-    case: RealGeneratorCase, bg_live_export_config: Any | None
-) -> None:
+def test_real_pipeline_with_two_chat_generators(case: RealGeneratorCase, bg_live_export_config: Any | None) -> None:
     """Verify a two-generator pipeline emits correlated Blue Guardrails spans.
 
     Args:
@@ -750,9 +746,7 @@ def test_real_pipeline_with_two_chat_generators(
         pipe.add_component("second_llm", _make_generator())
         pipeline_output = pipe.run(
             {
-                component_name: {
-                    "messages": [ChatMessage.from_system(SYSTEM_PROMPT), ChatMessage.from_user(prompt)]
-                }
+                component_name: {"messages": [ChatMessage.from_system(SYSTEM_PROMPT), ChatMessage.from_user(prompt)]}
                 for component_name, prompt in TWO_GENERATOR_PIPELINE_PROMPTS.items()
             }
         )
@@ -888,9 +882,7 @@ def test_real_connector_tags_are_conversation_tags(
         endpoint=(
             bg_live_export_config.endpoint if bg_live_export_config is not None else "http://localhost:4318/v1/traces"
         ),
-        api_key=Secret.from_token(
-            bg_live_export_config.api_key if bg_live_export_config is not None else "test-key"
-        ),
+        api_key=Secret.from_token(bg_live_export_config.api_key if bg_live_export_config is not None else "test-key"),
         tags=tags,
     )
     try:

@@ -10,7 +10,6 @@ import os
 from dataclasses import dataclass
 
 import pytest
-
 from haystack import tracing
 from haystack.tracing.tracer import ProxyTracer
 
@@ -40,13 +39,13 @@ def reset_haystack_tracing_state() -> None:
     tracing.tracer._bg_tracer = None
     tracing.tracer._bg_enabled = False
 
-    if bg_proxy._PIPELINE_SPAN_PATCHED and bg_proxy._ORIGINAL_CREATE_COMPONENT_SPAN is not None:
+    if bg_proxy._pipeline_span_patched and bg_proxy._original_create_component_span is not None:
         from haystack.core.pipeline.base import PipelineBase
 
-        PipelineBase._create_component_span = staticmethod(bg_proxy._ORIGINAL_CREATE_COMPONENT_SPAN)
+        PipelineBase._create_component_span = staticmethod(bg_proxy._original_create_component_span)
 
-    bg_proxy._PIPELINE_SPAN_PATCHED = False
-    bg_proxy._ORIGINAL_CREATE_COMPONENT_SPAN = None
+    bg_proxy._pipeline_span_patched = False
+    bg_proxy._original_create_component_span = None
 
 
 def _truthy_env(name: str) -> bool:

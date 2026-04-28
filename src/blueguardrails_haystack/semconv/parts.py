@@ -78,6 +78,7 @@ def file_part(file_id: str, mime_type: str | None = None, modality: str | None =
 
 
 def image_content_to_semconv(part: ImageContent) -> dict[str, Any]:
+    """Convert Haystack image content to a GenAI image blob part."""
     result = blob_part(part.base64_image, part.mime_type, modality="image")
     if part.detail:
         result["detail"] = part.detail
@@ -85,6 +86,7 @@ def image_content_to_semconv(part: ImageContent) -> dict[str, Any]:
 
 
 def file_content_to_semconv(part: FileContent) -> dict[str, Any]:
+    """Convert Haystack file content to a GenAI blob part."""
     result = blob_part(part.base64_data, part.mime_type)
     if part.filename:
         result["filename"] = part.filename
@@ -111,9 +113,7 @@ def chat_content_part_to_semconv(part: ChatMessageContentT) -> dict[str, Any] | 
         return {"type": "reasoning", "content": part.reasoning_text}
     if isinstance(part, ImageContent):
         return image_content_to_semconv(part)
-    if isinstance(part, FileContent):
-        return file_content_to_semconv(part)
-    return None
+    return file_content_to_semconv(part)
 
 
 def _media_type(part: Any) -> Any:

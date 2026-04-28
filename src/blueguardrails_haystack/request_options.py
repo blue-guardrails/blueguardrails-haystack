@@ -4,10 +4,10 @@
 
 """Extract and map generation request options to OTel GenAI attributes."""
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
-from blueguardrails_haystack._utils import first_present
+from blueguardrails_haystack._utils import AnyMapping, first_present, is_mapping, is_non_string_iterable
 
 REQUEST_OPTION_FIELDS = (
     "temperature",
@@ -42,10 +42,15 @@ REQUEST_OPTION_ATTRS: tuple[tuple[tuple[str, ...], str, Callable[[Any], Any]], .
 )
 
 
+def _string_keyed_copy(mapping: AnyMapping) -> dict[str, Any]:
+    """Return a plain dict containing only string-keyed options."""
+    return {key: item_value for key, item_value in mapping.items() if isinstance(key, str)}
+
+
 def options_from_object(value: Any) -> dict[str, Any]:
     """Extract known generation options from a mapping or provider config object."""
-    if isinstance(value, dict):
-        return value.copy()
+    if is_mapping(value):
+        return _string_keyed_copy(value)
 
     options: dict[str, Any] = {}
     for attr in REQUEST_OPTION_FIELDS:
@@ -55,7 +60,7 @@ def options_from_object(value: Any) -> dict[str, Any]:
     return options
 
 
-def request_options_from_input(value: dict[str, Any]) -> dict[str, Any]:
+def request_options_from_input(value: AnyMapping) -> dict[str, Any]:
     """Collect generation request options from Haystack component input values."""
     request_options: dict[str, Any] = {}
     for key in ("generation_kwargs", "generation_config"):
@@ -74,8 +79,8 @@ def component_request_options(instance: Any) -> dict[str, Any]:
 
     for attr in ("generation_kwargs", "_generation_kwargs", "kwargs"):
         value = getattr(instance, attr, None)
-        if isinstance(value, dict):
-            request_options.update(value)
+        if is_mapping(value):
+            request_options.update(_string_keyed_copy(value))
 
     for attr in ("generation_config", "_generation_config"):
         value = getattr(instance, attr, None)
@@ -89,7 +94,7 @@ def component_request_options(instance: Any) -> dict[str, Any]:
     return request_options
 
 
-def iter_request_option_attributes(request_options: dict[str, Any]) -> Iterator[tuple[str, Any]]:
+def iter_request_option_attributes(request_options: AnyMapping) -> Iterator[tuple[str, Any]]:
     """Yield OTel request-option attributes from generation request options."""
     for keys, attr, caster in REQUEST_OPTION_ATTRS:
         value = first_present(request_options, *keys)
@@ -104,7 +109,7 @@ def iter_request_option_attributes(request_options: dict[str, Any]) -> Iterator[
     if stop_sequences is not None:
         if isinstance(stop_sequences, str):
             stop_sequences = [stop_sequences]
-        if isinstance(stop_sequences, Iterable):
+        if is_non_string_iterable(stop_sequences):
             yield "gen_ai.request.stop_sequences", [str(sequence) for sequence in stop_sequences]
 
     if "stream" in request_options:

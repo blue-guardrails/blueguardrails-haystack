@@ -5,7 +5,7 @@
 import json
 
 from haystack.dataclasses import ByteStream, ChatMessage, FileContent, ImageContent
-from haystack.dataclasses.chat_message import ToolCall, ToolCallResult
+from haystack.dataclasses.chat_message import ToolCall
 from haystack.tools import Tool
 
 from blueguardrails_haystack.semconv import (
@@ -73,9 +73,7 @@ class TestConvertInputMessages:
 
     def test_multimodal_message_parts(self):
         image = ImageContent(base64_image="aW1hZ2U=", mime_type="image/png", detail="low", validation=False)
-        file = FileContent(
-            base64_data="ZmlsZQ==", mime_type="application/pdf", filename="paper.pdf", validation=False
-        )
+        file = FileContent(base64_data="ZmlsZQ==", mime_type="application/pdf", filename="paper.pdf", validation=False)
         messages = [ChatMessage.from_user(content_parts=["Describe these", image, file])]
 
         result = json.loads(convert_input_messages(messages))
@@ -202,16 +200,18 @@ class TestToolDefinitions:
 
     def test_openai_style_tool_dict(self):
         result = json.loads(
-            convert_tool_definitions([
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "lookup",
-                        "description": "Lookup things",
-                        "parameters": {"type": "object"},
-                    },
-                }
-            ])
+            convert_tool_definitions(
+                [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "lookup",
+                            "description": "Lookup things",
+                            "parameters": {"type": "object"},
+                        },
+                    }
+                ]
+            )
         )
         assert result == [
             {"type": "function", "name": "lookup", "description": "Lookup things", "parameters": {"type": "object"}}

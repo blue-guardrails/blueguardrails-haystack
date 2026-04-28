@@ -4,11 +4,28 @@
 
 """Small shared normalization helpers."""
 
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any, TypeGuard
+
+type AnyMapping = Mapping[Any, Any]
 
 
-def first_present(mapping: dict[str, Any], *keys: str) -> Any:
+def is_mapping(value: object) -> TypeGuard[AnyMapping]:
+    """Return whether a dynamic provider value is a mapping."""
+    return isinstance(value, Mapping)
+
+
+def is_list(value: object) -> TypeGuard[list[Any]]:
+    """Return whether a dynamic provider value is a list."""
+    return isinstance(value, list)
+
+
+def is_non_string_iterable(value: object) -> TypeGuard[Iterable[Any]]:
+    """Return whether a dynamic provider value is an iterable payload, excluding text/bytes."""
+    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
+
+
+def first_present(mapping: AnyMapping, *keys: str) -> Any:
     """Return the first non-``None`` value for the given keys."""
     for key in keys:
         if key in mapping and mapping[key] is not None:
@@ -16,12 +33,14 @@ def first_present(mapping: dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def nested_first_present(mapping: dict[str, Any], *paths: tuple[str, ...]) -> Any:
+def nested_first_present(mapping: AnyMapping, *paths: tuple[str, ...]) -> Any:
     """Return the first non-``None`` value found at a nested dictionary path."""
     for path in paths:
         current: Any = mapping
         for key in path:
-            if not isinstance(current, dict) or key not in current or current[key] is None:
+            if not is_mapping(current):
+                break
+            if key not in current or current[key] is None:
                 break
             current = current[key]
         else:
@@ -45,9 +64,9 @@ def snake_to_lower_camel(key: str) -> str:
     return head + "".join(part.capitalize() for part in tail)
 
 
-def mapping_numeric_items(value: Any) -> Iterator[tuple[str, Any]]:
+def mapping_numeric_items(value: object) -> Iterator[tuple[str, Any]]:
     """Yield key/value pairs from a mapping whose values can be converted to integers."""
-    if not isinstance(value, dict):
+    if not is_mapping(value):
         return
     for key, item_value in value.items():
         if to_int(item_value) is not None:

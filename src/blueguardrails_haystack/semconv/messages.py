@@ -49,7 +49,7 @@ def convert_input_messages(messages: list[ChatMessage]) -> str:
 
 def convert_output_messages(replies: list[ChatMessage]) -> str:
     """Convert output chat messages to GenAI JSON."""
-    output_messages = []
+    output_messages: list[dict[str, Any]] = []
     for reply in replies:
         message = _chat_message_to_semconv(reply)
         _add_finish_reason(message, extract_finish_reason(reply.meta))
@@ -80,16 +80,16 @@ def convert_plain_text_to_output_messages(replies: list[str], finish_reasons: It
     return _json(messages)
 
 
-def convert_image_outputs_to_output_messages(
-    images: Iterable[Any], finish_reasons: Iterable[Any] | None = None
-) -> str:
+def convert_image_outputs_to_output_messages(images: Iterable[Any], finish_reasons: Iterable[Any] | None = None) -> str:
     """Convert generated images to GenAI output-message JSON."""
     raw_finish_reasons = list(finish_reasons or [])
-    messages = []
+    messages: list[dict[str, Any]] = []
     for index, image in enumerate(images):
         part = generated_image_to_semconv(image)
         if part:
-            messages.append(_assistant_message([part], raw_finish_reasons[index] if index < len(raw_finish_reasons) else None))
+            messages.append(
+                _assistant_message([part], raw_finish_reasons[index] if index < len(raw_finish_reasons) else None)
+            )
     return _json(messages)
 
 

@@ -7,7 +7,7 @@
 from typing import Any
 from urllib.parse import urlparse
 
-from blueguardrails_haystack._utils import to_int
+from blueguardrails_haystack._utils import is_mapping, to_int
 from blueguardrails_haystack.request_options import component_request_options, options_from_object
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
@@ -37,7 +37,7 @@ _SERVER_NESTED_ATTRS = (
 
 
 def _get_value(value: Any, key: str) -> Any:
-    if isinstance(value, dict):
+    if is_mapping(value):
         return value.get(key)
     try:
         return getattr(value, key, None)

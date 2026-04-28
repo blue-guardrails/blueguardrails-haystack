@@ -4,13 +4,13 @@
 
 """Haystack span implementations used by the Blue Guardrails sidecar tracer."""
 
-from collections.abc import Iterable
-from typing import Any
+from typing import Any, TypeGuard
 
 from haystack import logging
 from haystack.dataclasses import ChatMessage
-from haystack.tracing import Span
+from haystack.tracing.tracer import Span
 
+from blueguardrails_haystack._utils import AnyMapping, is_list, is_mapping, is_non_string_iterable
 from blueguardrails_haystack.request_options import iter_request_option_attributes, request_options_from_input
 from blueguardrails_haystack.semconv import (
     convert_image_outputs_to_output_messages,
@@ -29,14 +29,31 @@ from blueguardrails_haystack.usage import extract_usage_attributes
 logger = logging.getLogger(__name__)
 
 
+def _is_chat_message_list(value: object) -> TypeGuard[list[ChatMessage]]:
+    """Return whether a dynamic value is a list of Haystack chat messages."""
+    return is_list(value) and all(isinstance(item, ChatMessage) for item in value)
+
+
+def _is_str_list(value: object) -> TypeGuard[list[str]]:
+    """Return whether a dynamic value is a list of strings."""
+    return is_list(value) and all(isinstance(item, str) for item in value)
+
+
 class BGSpan(Span):
     """Map Haystack span tags to GenAI attributes on an OTel span."""
 
     def __init__(self, otel_span: Any, is_chat: bool) -> None:
+        """Initialize the span wrapper.
+
+        Args:
+            otel_span: OpenTelemetry span that receives GenAI attributes.
+            is_chat: Whether this span represents a chat generator call.
+        """
         self._span = otel_span
         self._is_chat = is_chat
 
     def set_tag(self, key: str, value: Any) -> None:
+        """Map a standard Haystack tag to Blue Guardrails attributes."""
         try:
             if key in ("haystack.component.name", "haystack.component.type"):
                 self._span.set_attribute(key, str(value))
@@ -47,7 +64,7 @@ class BGSpan(Span):
 
     def set_content_tag(self, key: str, value: Any) -> None:
         """Map Haystack component input/output content to GenAI attributes."""
-        if not isinstance(value, dict):
+        if not is_mapping(value):
             return
 
         try:
@@ -93,17 +110,17 @@ class BGSpan(Span):
             self._set_request_model(str(model))
 
         server = config.get("server")
-        if isinstance(server, dict):
+        if is_mapping(server):
             self._set_server_attributes(server)
 
         request_options = config.get("request_options")
-        if isinstance(request_options, dict):
+        if is_mapping(request_options):
             self._set_request_options(request_options)
 
         if "tools" in config:
             self._set_tool_definitions(config["tools"])
 
-    def _set_server_attributes(self, server: dict[str, Any]) -> None:
+    def _set_server_attributes(self, server: AnyMapping) -> None:
         address = server.get("address")
         if address:
             self._span.set_attribute("server.address", str(address))
@@ -116,7 +133,7 @@ class BGSpan(Span):
         except (ValueError, TypeError):
             pass
 
-    def _set_request_options(self, request_options: dict[str, Any]) -> None:
+    def _set_request_options(self, request_options: AnyMapping) -> None:
         request_model = str(request_options.get("model") or "")
         if request_model:
             self._set_request_model(request_model)
@@ -127,7 +144,7 @@ class BGSpan(Span):
     def _set_tool_definitions(self, tools: Any) -> None:
         self._span.set_attribute("gen_ai.tool.definitions", convert_tool_definitions(tools))
 
-    def _handle_input(self, value: dict[str, Any]) -> None:
+    def _handle_input(self, value: AnyMapping) -> None:
         request_options = request_options_from_input(value)
         self._set_request_options(request_options)
 
@@ -139,32 +156,34 @@ class BGSpan(Span):
 
         if self._is_chat and "messages" in value:
             messages = value["messages"]
-            if isinstance(messages, list) and all(isinstance(message, ChatMessage) for message in messages):
+            if _is_chat_message_list(messages):
                 self._span.set_attribute("gen_ai.input.messages", convert_input_messages(messages))
         elif "prompt" in value:
-            self._span.set_attribute("gen_ai.input.messages", convert_plain_text_to_input_messages(str(value["prompt"])))
+            self._span.set_attribute(
+                "gen_ai.input.messages", convert_plain_text_to_input_messages(str(value["prompt"]))
+            )
         elif "parts" in value:
             parts = value["parts"]
-            if isinstance(parts, Iterable) and not isinstance(parts, (str, bytes)):
+            if is_non_string_iterable(parts):
                 self._span.set_attribute("gen_ai.input.messages", convert_parts_to_input_messages(parts))
 
     @staticmethod
-    def _metas_from_value(value: Any) -> list[dict[str, Any]]:
-        if isinstance(value, list):
-            return [meta for meta in value if isinstance(meta, dict)]
-        if isinstance(value, dict):
+    def _metas_from_value(value: Any) -> list[AnyMapping]:
+        if is_list(value):
+            return [meta for meta in value if is_mapping(meta)]
+        if is_mapping(value):
             return [value]
         return []
 
-    def _handle_output(self, value: dict[str, Any]) -> None:
+    def _handle_output(self, value: AnyMapping) -> None:
         replies = value.get("replies")
-        if isinstance(replies, list) and replies:
-            if all(isinstance(reply, ChatMessage) for reply in replies):
-                metas = [reply.meta for reply in replies if isinstance(reply.meta, dict)]
+        if replies:
+            if _is_chat_message_list(replies):
+                metas = [reply.meta for reply in replies if is_mapping(reply.meta)]
                 self._span.set_attribute("gen_ai.output.messages", convert_output_messages(replies))
                 self._finalize_output_metadata(metas)
                 return
-            if all(isinstance(reply, str) for reply in replies):
+            if _is_str_list(replies):
                 metas = self._metas_from_value(value.get("meta"))
                 self._span.set_attribute(
                     "gen_ai.output.messages",
@@ -177,15 +196,18 @@ class BGSpan(Span):
         finish_reasons = [extract_finish_reason(meta) for meta in metas]
 
         images = value.get("images")
-        if isinstance(images, list) and images:
-            self._span.set_attribute("gen_ai.output.messages", convert_image_outputs_to_output_messages(images, finish_reasons))
+        if is_list(images) and images:
+            self._span.set_attribute(
+                "gen_ai.output.messages",
+                convert_image_outputs_to_output_messages(images, finish_reasons),
+            )
             self._span.set_attribute("gen_ai.output.type", "image")
             self._finalize_output_metadata(metas)
             return
 
         for key in ("files", "parts"):
             parts = value.get(key)
-            if isinstance(parts, list) and parts:
+            if is_list(parts) and parts:
                 self._span.set_attribute(
                     "gen_ai.output.messages",
                     convert_parts_to_output_messages(parts, finish_reasons[0] if finish_reasons else None),
@@ -193,7 +215,7 @@ class BGSpan(Span):
                 self._finalize_output_metadata(metas)
                 return
 
-    def _finalize_output_metadata(self, metas: list[dict[str, Any]]) -> None:
+    def _finalize_output_metadata(self, metas: list[AnyMapping]) -> None:
         self._set_finish_reasons(metas)
         if metas:
             self._set_response_id(metas[0])
@@ -206,7 +228,7 @@ class BGSpan(Span):
             if request_model:
                 self._span.set_attribute("gen_ai.response.model", str(request_model))
 
-    def _set_finish_reasons(self, metas: list[dict[str, Any]]) -> None:
+    def _set_finish_reasons(self, metas: list[AnyMapping]) -> None:
         finish_reasons = [
             finish_reason
             for meta in metas
@@ -215,12 +237,12 @@ class BGSpan(Span):
         if finish_reasons:
             self._span.set_attribute("gen_ai.response.finish_reasons", finish_reasons)
 
-    def _set_response_id(self, meta: dict[str, Any]) -> None:
+    def _set_response_id(self, meta: AnyMapping) -> None:
         response_id = meta.get("id") or meta.get("response_id")
         if response_id is not None:
             self._span.set_attribute("gen_ai.response.id", str(response_id))
 
-    def _set_response_metadata(self, meta: dict[str, Any]) -> None:
+    def _set_response_metadata(self, meta: AnyMapping) -> None:
         model = meta.get("model") or meta.get("model_id") or meta.get("modelId")
         if model:
             self._set_response_model(str(model))
@@ -230,9 +252,11 @@ class BGSpan(Span):
             self._span.set_attribute(attr, value)
 
     def raw_span(self) -> Any:
+        """Return the wrapped OpenTelemetry span."""
         return self._span
 
     def get_correlation_data_for_logs(self) -> dict[str, Any]:
+        """Return log-correlation data for Haystack's tracing API."""
         return {}
 
 
@@ -240,19 +264,39 @@ class CompositeSpan(Span):
     """Forward span operations to the user's span and the Blue Guardrails span."""
 
     def __init__(self, original: Span, bg: Span) -> None:
+        """Initialize a span that forwards to user and Blue Guardrails spans.
+
+        Args:
+            original: User-configured Haystack span.
+            bg: Blue Guardrails span.
+        """
         self._original = original
         self._bg = bg
 
+    @property
+    def original(self) -> Span:
+        """Return the wrapped user span."""
+        return self._original
+
+    @property
+    def bg(self) -> Span:
+        """Return the wrapped Blue Guardrails span."""
+        return self._bg
+
     def set_tag(self, key: str, value: Any) -> None:
+        """Forward a standard Haystack tag to both spans."""
         self._original.set_tag(key, value)
         self._bg.set_tag(key, value)
 
     def set_content_tag(self, key: str, value: Any) -> None:
+        """Forward a Haystack content tag to both spans."""
         self._original.set_content_tag(key, value)
         self._bg.set_content_tag(key, value)
 
     def raw_span(self) -> Any:
+        """Return the user's raw span."""
         return self._original.raw_span()
 
     def get_correlation_data_for_logs(self) -> dict[str, Any]:
+        """Return the user's log-correlation data."""
         return self._original.get_correlation_data_for_logs()
