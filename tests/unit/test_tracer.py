@@ -809,7 +809,7 @@ class TestConfigureBlueGuardrailsTracer:
 
     def test_default_configure_reads_blueguardrails_api_key(self, monkeypatch):
         RecordingOTLPSpanExporter.instances = []
-        monkeypatch.setenv("BLUEGUARDRAILS_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
         monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
         monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
 
@@ -833,7 +833,7 @@ class TestConfigureBlueGuardrailsTracer:
 
     def test_default_configure_accepts_explicit_api_key(self, monkeypatch):
         RecordingOTLPSpanExporter.instances = []
-        monkeypatch.delenv("BLUEGUARDRAILS_API_KEY", raising=False)
+        monkeypatch.delenv("BLUE_GUARDRAILS_API_KEY", raising=False)
         monkeypatch.setattr(tracer_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
         monkeypatch.setattr(tracer_module, "BatchSpanProcessor", SimpleSpanProcessor)
 
@@ -843,13 +843,13 @@ class TestConfigureBlueGuardrailsTracer:
         assert exporter.headers == {"Authorization": "Bearer explicit-key"}
 
     def test_default_configure_requires_api_key(self, monkeypatch):
-        monkeypatch.delenv("BLUEGUARDRAILS_API_KEY", raising=False)
+        monkeypatch.delenv("BLUE_GUARDRAILS_API_KEY", raising=False)
 
-        with pytest.raises(ValueError, match="BLUEGUARDRAILS_API_KEY"):
+        with pytest.raises(ValueError, match="BLUE_GUARDRAILS_API_KEY"):
             configure_blueguardrails_tracer()
 
     def test_default_configure_validates_sample_rate(self, monkeypatch):
-        monkeypatch.setenv("BLUEGUARDRAILS_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
 
         with pytest.raises(ValueError, match="sample_rate"):
             configure_blueguardrails_tracer(sample_rate=1.1)

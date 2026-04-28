@@ -58,7 +58,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help=(
             "Export integration/benchmark test spans to Blue Guardrails. "
-            "Can also be enabled with BLUEGUARDRAILS_SEND_TRACES=1. Requires BLUEGUARDRAILS_API_KEY."
+            "Can also be enabled with BLUEGUARDRAILS_SEND_TRACES=1. Requires BLUE_GUARDRAILS_API_KEY."
         ),
     )
     group.addoption(
@@ -86,9 +86,9 @@ def blueguardrails_live_export_config(request: pytest.FixtureRequest) -> BlueGua
     if not send_traces:
         return None
 
-    api_key = os.getenv("BLUEGUARDRAILS_API_KEY")
+    api_key = os.getenv("BLUE_GUARDRAILS_API_KEY")
     if not api_key:
-        pytest.fail("--blueguardrails-send-traces/BLUEGUARDRAILS_SEND_TRACES requires BLUEGUARDRAILS_API_KEY")
+        pytest.fail("--blueguardrails-send-traces/BLUEGUARDRAILS_SEND_TRACES requires BLUE_GUARDRAILS_API_KEY")
 
     endpoint = (
         request.config.getoption("--blueguardrails-endpoint")

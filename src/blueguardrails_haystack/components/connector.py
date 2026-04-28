@@ -42,7 +42,7 @@ class BlueGuardrailsConnector:
                 "blueguardrails",
                 BlueGuardrailsConnector(
                     name="my-pipeline",
-                    api_key=Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),
+                    api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
                 ),
             )
             pipe.add_component("llm", OpenAIChatGenerator())
@@ -53,7 +53,7 @@ class BlueGuardrailsConnector:
         name: str,
         *,
         endpoint: str = _DEFAULT_ENDPOINT,
-        api_key: Secret | None = Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),  # noqa: B008
+        api_key: Secret | None = Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),  # noqa: B008
         sample_rate: float = 1.0,
         tags: dict[str, str] | None = None,
     ) -> None:

@@ -11,7 +11,7 @@ These tests make live provider calls. Select them with pytest's integration mark
 Set provider credentials in the usual Haystack environment variables or in a .env
 file loaded by python-dotenv. For Bedrock, `AWS_BEARER_TOKEN_BEDROCK` is also
 accepted for API key auth when a region is set. To also export the captured spans
-to Blue Guardrails, set BLUEGUARDRAILS_API_KEY and add --blueguardrails-send-traces:
+to Blue Guardrails, set BLUE_GUARDRAILS_API_KEY and add --blueguardrails-send-traces:
 
     uv run --extra integration pytest -m integration --blueguardrails-send-traces \
         tests/integration/test_real_generators.py

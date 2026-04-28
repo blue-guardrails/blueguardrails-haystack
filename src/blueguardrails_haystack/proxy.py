@@ -171,7 +171,7 @@ def configure_blueguardrails_tracer(
     """Configure Blue Guardrails on the global Haystack tracing proxy.
 
     If ``blueguardrails_tracer`` is not provided, this function creates one with the default
-    Blue Guardrails OTLP exporter. In that mode, it reads ``BLUEGUARDRAILS_API_KEY`` unless
+    Blue Guardrails OTLP exporter. In that mode, it reads ``BLUE_GUARDRAILS_API_KEY`` unless
     ``api_key`` is provided explicitly.
 
     Args:
@@ -179,7 +179,7 @@ def configure_blueguardrails_tracer(
             with the default Blue Guardrails exporter is created.
         name: Trace name shown in Blue Guardrails when creating a default tracer.
         endpoint: Blue Guardrails OTLP trace endpoint when creating a default tracer.
-        api_key: API key used to authorize trace export. Defaults to ``BLUEGUARDRAILS_API_KEY``.
+        api_key: API key used to authorize trace export. Defaults to ``BLUE_GUARDRAILS_API_KEY``.
         sample_rate: Fraction of generator calls to trace, from 0.0 to 1.0.
         tags: Conversation tags attached to exported spans.
         replace: Replace an already-installed Blue Guardrails tracer. Defaults

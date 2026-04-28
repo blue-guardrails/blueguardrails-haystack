@@ -107,9 +107,9 @@ class BlueGuardrailsTracer(Tracer):
 
 
 def _resolve_api_key(api_key: str | Secret | None) -> str:
-    """Resolve an API key from an explicit value or ``BLUEGUARDRAILS_API_KEY``."""
+    """Resolve an API key from an explicit value or ``BLUE_GUARDRAILS_API_KEY``."""
     if api_key is None:
-        resolved_key = os.getenv("BLUEGUARDRAILS_API_KEY")
+        resolved_key = os.getenv("BLUE_GUARDRAILS_API_KEY")
     elif isinstance(api_key, Secret):
         resolved_key = api_key.resolve_value()
     else:
@@ -117,7 +117,7 @@ def _resolve_api_key(api_key: str | Secret | None) -> str:
 
     if not resolved_key or not resolved_key.strip():
         raise ValueError(
-            "Blue Guardrails API key is required. Set BLUEGUARDRAILS_API_KEY or pass api_key to "
+            "Blue Guardrails API key is required. Set BLUE_GUARDRAILS_API_KEY or pass api_key to "
             "configure_blueguardrails_tracer()."
         )
     return resolved_key.strip()

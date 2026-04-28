@@ -104,7 +104,7 @@ def _make_serde_pipeline(model: str = "serde-chat-model") -> Pipeline:
         BlueGuardrailsConnector(
             name="serde-pipeline",
             endpoint="http://localhost:4318/v1/traces",
-            api_key=Secret.from_env_var("BLUEGUARDRAILS_API_KEY", strict=False),
+            api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY", strict=False),
             tags={"suite": "serde"},
         ),
     )
@@ -243,11 +243,11 @@ class TestBlueGuardrailsConnector:
         assert result == {"name": "my-pipeline"}
 
     def test_serialization_roundtrip(self):
-        with patch.dict(os.environ, {"BLUEGUARDRAILS_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {"BLUE_GUARDRAILS_API_KEY": "fake-key"}):
             connector = BlueGuardrailsConnector(
                 name="test",
                 endpoint="http://localhost:4318/v1/traces",
-                api_key=Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),
+                api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
                 sample_rate=0.5,
                 tags={"env": "test"},
             )
@@ -258,7 +258,7 @@ class TestBlueGuardrailsConnector:
         assert data["init_parameters"]["tags"] == {"env": "test"}
         assert data["init_parameters"]["api_key"] == {
             "type": "env_var",
-            "env_vars": ["BLUEGUARDRAILS_API_KEY"],
+            "env_vars": ["BLUE_GUARDRAILS_API_KEY"],
             "strict": True,
         }
 
@@ -268,23 +268,23 @@ class TestBlueGuardrailsConnector:
             "init_parameters": {
                 "name": "test",
                 "endpoint": "http://localhost:4318/v1/traces",
-                "api_key": {"type": "env_var", "env_vars": ["BLUEGUARDRAILS_API_KEY"], "strict": False},
+                "api_key": {"type": "env_var", "env_vars": ["BLUE_GUARDRAILS_API_KEY"], "strict": False},
                 "sample_rate": 0.1,
                 "tags": None,
             },
         }
-        with patch.dict(os.environ, {"BLUEGUARDRAILS_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {"BLUE_GUARDRAILS_API_KEY": "fake-key"}):
             connector = BlueGuardrailsConnector.from_dict(data)
 
         assert connector.name == "test"
         assert connector.sample_rate == 0.1
 
     def test_connector_to_dict_from_dict_roundtrip_initializes_tracing(self, recording_connector_exporter, monkeypatch):
-        monkeypatch.setenv("BLUEGUARDRAILS_API_KEY", "fake-key")
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-key")
         connector = BlueGuardrailsConnector(
             name="serde-connector",
             endpoint="http://localhost:4318/v1/traces",
-            api_key=Secret.from_env_var("BLUEGUARDRAILS_API_KEY"),
+            api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
             sample_rate=1.0,
             tags={"suite": "serde"},
         )
@@ -295,7 +295,7 @@ class TestBlueGuardrailsConnector:
             "init_parameters": {
                 "name": "serde-connector",
                 "endpoint": "http://localhost:4318/v1/traces",
-                "api_key": {"type": "env_var", "env_vars": ["BLUEGUARDRAILS_API_KEY"], "strict": True},
+                "api_key": {"type": "env_var", "env_vars": ["BLUE_GUARDRAILS_API_KEY"], "strict": True},
                 "sample_rate": 1.0,
                 "tags": {"suite": "serde"},
             },
@@ -310,7 +310,7 @@ class TestBlueGuardrailsConnector:
         assert round_tripped.tags == {"suite": "serde"}
         assert round_tripped.api_key.to_dict() == {
             "type": "env_var",
-            "env_vars": ["BLUEGUARDRAILS_API_KEY"],
+            "env_vars": ["BLUE_GUARDRAILS_API_KEY"],
             "strict": True,
         }
         assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
