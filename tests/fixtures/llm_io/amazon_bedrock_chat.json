@@ -1,0 +1,183 @@
+{
+  "case_id": "amazon_bedrock_chat",
+  "class_path": "haystack_integrations.components.generators.amazon_bedrock:AmazonBedrockChatGenerator",
+  "generated_at": "2026-04-28T05:51:56.325422+00:00",
+  "kind": "chat",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "provider": "aws.bedrock",
+  "raw_init": {
+    "aws_access_key_id": "TokenSecret(_token='unused-for-bedrock-bearer-auth', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_profile_name": "TokenSecret(_token='default', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_region_name": "EnvVarSecret(_env_vars=('AWS_DEFAULT_REGION', 'AWS_REGION'), _strict=False, _type=<SecretType.ENV_VAR: 'env_var'>)",
+    "aws_secret_access_key": "TokenSecret(_token='unused-for-bedrock-bearer-auth', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_session_token": null,
+    "generation_kwargs": {
+      "maxTokens": 32
+    },
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "tools": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "raw_input": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are a concise integration-test assistant. Follow the user's instruction exactly."
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Reply with the exact phrase: blueguardrails trace ok"
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "user"
+      }
+    ]
+  },
+  "raw_output": {
+    "replies": [
+      {
+        "content": [
+          {
+            "text": "I'll call the noop function with that exact phrase:"
+          },
+          {
+            "tool_call": {
+              "arguments": {},
+              "extra": null,
+              "id": "tooluse_L2ZiNf3FUQuIO4YBrgepQY",
+              "tool_name": "blueguar"
+            }
+          }
+        ],
+        "meta": {
+          "finish_reason": "length",
+          "index": 0,
+          "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+          "usage": {
+            "cache_details": {},
+            "cache_read_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "completion_tokens": 32,
+            "prompt_tokens": 602,
+            "total_tokens": 634
+          }
+        },
+        "name": null,
+        "role": "assistant"
+      }
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "You are a concise integration-test assistant. Follow the user's instruction exactly.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "length",
+        "parts": [
+          {
+            "content": "I'll call the noop function with that exact phrase:",
+            "type": "text"
+          },
+          {
+            "id": "tooluse_L2ZiNf3FUQuIO4YBrgepQY",
+            "name": "blueguar",
+            "type": "tool_call"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "gen_ai.tool.definitions": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "6239fc54-0982-42de-8f23-23dd40f428c7",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"system\", \"parts\": [{\"type\": \"text\", \"content\": \"You are a concise integration-test assistant. Follow the user's instruction exactly.\"}]}, {\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"I'll call the noop function with that exact phrase:\"}, {\"type\": \"tool_call\", \"name\": \"blueguar\", \"id\": \"tooluse_L2ZiNf3FUQuIO4YBrgepQY\"}], \"finish_reason\": \"length\"}]",
+      "gen_ai.provider.name": "aws.bedrock",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "gen_ai.request.stream": false,
+      "gen_ai.response.finish_reasons": [
+        "length"
+      ],
+      "gen_ai.response.model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "gen_ai.tool.definitions": "[{\"type\": \"function\", \"name\": \"blueguardrails_noop\", \"description\": \"Returns the provided value. Do not use unless explicitly asked to call a tool.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"value\": {\"type\": \"string\"}}, \"required\": [\"value\"]}}]",
+      "gen_ai.usage.cache_creation.input_tokens": 0,
+      "gen_ai.usage.cache_read.input_tokens": 0,
+      "gen_ai.usage.input_tokens": 602,
+      "gen_ai.usage.output_tokens": 32,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "AmazonBedrockChatGenerator",
+      "server.address": "bedrock-runtime.us-east-1.amazonaws.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "chat global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  },
+  "variant": {
+    "id": "non_streaming",
+    "streaming": false
+  }
+}

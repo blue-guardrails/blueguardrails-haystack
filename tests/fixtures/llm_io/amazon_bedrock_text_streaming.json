@@ -1,0 +1,88 @@
+{
+  "case_id": "amazon_bedrock_text",
+  "class_path": "haystack_integrations.components.generators.amazon_bedrock:AmazonBedrockGenerator",
+  "generated_at": "2026-04-28T05:52:11.323985+00:00",
+  "kind": "text",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "provider": "aws.bedrock",
+  "raw_init": {
+    "aws_access_key_id": "TokenSecret(_token='unused-for-bedrock-bearer-auth', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_profile_name": "TokenSecret(_token='default', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_region_name": "EnvVarSecret(_env_vars=('AWS_DEFAULT_REGION', 'AWS_REGION'), _strict=False, _type=<SecretType.ENV_VAR: 'env_var'>)",
+    "aws_secret_access_key": "TokenSecret(_token='unused-for-bedrock-bearer-auth', _type=<SecretType.TOKEN: 'token'>)",
+    "aws_session_token": null,
+    "max_length": 32,
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "model_family": "anthropic.claude"
+  },
+  "raw_input": {
+    "prompt": "Reply with the exact phrase: blueguardrails trace ok",
+    "streaming_callback": "test_real_generators._run_case.<locals>._streaming_callback"
+  },
+  "raw_output": {
+    "meta": {
+      "HTTPHeaders": {
+        "connection": "keep-alive",
+        "content-type": "application/vnd.amazon.eventstream",
+        "date": "Tue, 28 Apr 2026 05:52:11 GMT",
+        "transfer-encoding": "chunked",
+        "x-amzn-bedrock-content-type": "application/json",
+        "x-amzn-requestid": "2b64868a-acdd-42fb-8d25-46cbf30d2c37"
+      },
+      "HTTPStatusCode": 200,
+      "RequestId": "2b64868a-acdd-42fb-8d25-46cbf30d2c37",
+      "RetryAttempts": 0
+    },
+    "replies": [
+      "blueguardrails trace ok"
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "parts": [
+          {
+            "content": "blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "7460e135-ebc2-4d04-b279-b6487ce2dc05",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "text_completion",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"blueguardrails trace ok\"}]}]",
+      "gen_ai.provider.name": "aws.bedrock",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "gen_ai.request.stream": true,
+      "gen_ai.response.model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "haystack.component.name": "llm",
+      "haystack.component.type": "AmazonBedrockGenerator",
+      "server.address": "bedrock-runtime.us-east-1.amazonaws.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "text_completion global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  },
+  "variant": {
+    "id": "streaming",
+    "streaming": true
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "case_id": "google_genai_chat",
+  "class_path": "haystack_integrations.components.generators.google_genai:GoogleGenAIChatGenerator",
+  "generated_at": "2026-04-28T05:52:01.190369+00:00",
+  "kind": "chat",
+  "model": "gemini-3.1-flash-lite-preview",
+  "provider": "gcp.gemini",
+  "raw_init": {
+    "generation_kwargs": {
+      "max_output_tokens": 32
+    },
+    "model": "gemini-3.1-flash-lite-preview",
+    "tools": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "raw_input": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are a concise integration-test assistant. Follow the user's instruction exactly."
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Reply with the exact phrase: blueguardrails trace ok"
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "user"
+      }
+    ],
+    "streaming_callback": "test_real_generators._run_case.<locals>._streaming_callback"
+  },
+  "raw_output": {
+    "replies": [
+      {
+        "content": [
+          {
+            "text": "blueguardrails trace ok"
+          }
+        ],
+        "meta": {
+          "completion_start_time": "2026-04-28T05:52:01.064342+00:00",
+          "finish_reason": "stop",
+          "index": 0,
+          "model": "gemini-3.1-flash-lite-preview",
+          "thought_signatures": [
+            {
+              "has_function_call": false,
+              "has_text": true,
+              "is_thought": null,
+              "part_index": 0,
+              "signature": {
+                "__bytes_base64__": "EjQKMgEMOdbHuS/BYkfNiKjDdZclSV0i5HXMVWNp0p19K1EYeEI5u0D0ZU8gYOKwgMb3B7G/"
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 85,
+            "total_tokens": 90
+          }
+        },
+        "name": null,
+        "role": "assistant"
+      }
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "You are a concise integration-test assistant. Follow the user's instruction exactly.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "stop",
+        "parts": [
+          {
+            "content": "blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "gen_ai.tool.definitions": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "17b3013c-dab3-4e09-adcd-a5079df29cc4",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"system\", \"parts\": [{\"type\": \"text\", \"content\": \"You are a concise integration-test assistant. Follow the user's instruction exactly.\"}]}, {\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"blueguardrails trace ok\"}], \"finish_reason\": \"stop\"}]",
+      "gen_ai.provider.name": "gcp.gemini",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "gemini-3.1-flash-lite-preview",
+      "gen_ai.request.stream": true,
+      "gen_ai.response.finish_reasons": [
+        "stop"
+      ],
+      "gen_ai.response.model": "gemini-3.1-flash-lite-preview",
+      "gen_ai.tool.definitions": "[{\"type\": \"function\", \"name\": \"blueguardrails_noop\", \"description\": \"Returns the provided value. Do not use unless explicitly asked to call a tool.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"value\": {\"type\": \"string\"}}, \"required\": [\"value\"]}}]",
+      "gen_ai.usage.input_tokens": 85,
+      "gen_ai.usage.output_tokens": 5,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "GoogleGenAIChatGenerator",
+      "server.address": "generativelanguage.googleapis.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "chat gemini-3.1-flash-lite-preview"
+  },
+  "variant": {
+    "id": "streaming",
+    "streaming": true
+  }
+}

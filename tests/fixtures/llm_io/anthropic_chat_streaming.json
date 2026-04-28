@@ -1,0 +1,167 @@
+{
+  "case_id": "anthropic_chat",
+  "class_path": "haystack_integrations.components.generators.anthropic:AnthropicChatGenerator",
+  "generated_at": "2026-04-28T05:52:00.246904+00:00",
+  "kind": "chat",
+  "model": "claude-haiku-4-5",
+  "provider": "anthropic",
+  "raw_init": {
+    "generation_kwargs": {
+      "max_tokens": 32
+    },
+    "model": "claude-haiku-4-5",
+    "tools": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "raw_input": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are a concise integration-test assistant. Follow the user's instruction exactly."
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Reply with the exact phrase: blueguardrails trace ok"
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "user"
+      }
+    ],
+    "streaming_callback": "test_real_generators._run_case.<locals>._streaming_callback"
+  },
+  "raw_output": {
+    "replies": [
+      {
+        "content": [
+          {
+            "text": "I cannot call a tool to return that exact phrase since you're asking me to reply directly. Here's your exact phrase:\n\nblueguardrails trace"
+          }
+        ],
+        "meta": {
+          "completion_start_time": null,
+          "finish_reason": "length",
+          "index": 0,
+          "model": "claude-haiku-4-5-20251001",
+          "received_at": "2026-04-28T05:52:00.108186+00:00",
+          "usage": {
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "input_tokens": 602,
+            "output_tokens": 32,
+            "server_tool_use": null
+          }
+        },
+        "name": null,
+        "role": "assistant"
+      }
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "You are a concise integration-test assistant. Follow the user's instruction exactly.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "length",
+        "parts": [
+          {
+            "content": "I cannot call a tool to return that exact phrase since you're asking me to reply directly. Here's your exact phrase:\n\nblueguardrails trace",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "gen_ai.tool.definitions": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "4f0acc17-3142-4cdd-8c4d-04630a3a9f31",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"system\", \"parts\": [{\"type\": \"text\", \"content\": \"You are a concise integration-test assistant. Follow the user's instruction exactly.\"}]}, {\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"I cannot call a tool to return that exact phrase since you're asking me to reply directly. Here's your exact phrase:\\n\\nblueguardrails trace\"}], \"finish_reason\": \"length\"}]",
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "claude-haiku-4-5",
+      "gen_ai.request.stream": true,
+      "gen_ai.response.finish_reasons": [
+        "length"
+      ],
+      "gen_ai.response.model": "claude-haiku-4-5-20251001",
+      "gen_ai.tool.definitions": "[{\"type\": \"function\", \"name\": \"blueguardrails_noop\", \"description\": \"Returns the provided value. Do not use unless explicitly asked to call a tool.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"value\": {\"type\": \"string\"}}, \"required\": [\"value\"]}}]",
+      "gen_ai.usage.cache_creation.input_tokens": 0,
+      "gen_ai.usage.cache_read.input_tokens": 0,
+      "gen_ai.usage.input_tokens": 602,
+      "gen_ai.usage.output_tokens": 32,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "AnthropicChatGenerator",
+      "server.address": "api.anthropic.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "chat claude-haiku-4-5"
+  },
+  "variant": {
+    "id": "streaming",
+    "streaming": true
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "case_id": "openai_text",
+  "class_path": "haystack.components.generators.openai:OpenAIGenerator",
+  "generated_at": "2026-04-28T05:52:08.695012+00:00",
+  "kind": "text",
+  "model": "gpt-5.4-nano",
+  "provider": "openai",
+  "raw_init": {
+    "generation_kwargs": {
+      "max_completion_tokens": 32
+    },
+    "model": "gpt-5.4-nano"
+  },
+  "raw_input": {
+    "generation_kwargs": {
+      "stream_options": {
+        "include_usage": true
+      }
+    },
+    "prompt": "Reply with the exact phrase: blueguardrails trace ok",
+    "streaming_callback": "test_real_generators._run_case.<locals>._streaming_callback"
+  },
+  "raw_output": {
+    "meta": [
+      {
+        "completion_start_time": "2026-04-28T07:52:08.553258",
+        "finish_reason": "stop",
+        "index": 0,
+        "model": "gpt-5.4-nano-2026-03-17",
+        "usage": {
+          "completion_tokens": 8,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 17,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          },
+          "total_tokens": 25
+        }
+      }
+    ],
+    "replies": [
+      "blueguardrails trace ok"
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "stop",
+        "parts": [
+          {
+            "content": "blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "0a2f585a-b19e-4dea-9d64-79177048e9d4",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "text_completion",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"blueguardrails trace ok\"}], \"finish_reason\": \"stop\"}]",
+      "gen_ai.provider.name": "openai",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "gpt-5.4-nano",
+      "gen_ai.request.stream": true,
+      "gen_ai.response.finish_reasons": [
+        "stop"
+      ],
+      "gen_ai.response.model": "gpt-5.4-nano-2026-03-17",
+      "gen_ai.usage.cache_read.input_tokens": 0,
+      "gen_ai.usage.input_tokens": 17,
+      "gen_ai.usage.output_tokens": 8,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "OpenAIGenerator",
+      "server.address": "api.openai.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "text_completion gpt-5.4-nano"
+  },
+  "variant": {
+    "id": "streaming",
+    "streaming": true
+  }
+}

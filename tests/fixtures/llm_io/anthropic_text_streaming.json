@@ -1,0 +1,96 @@
+{
+  "case_id": "anthropic_text",
+  "class_path": "haystack_integrations.components.generators.anthropic:AnthropicGenerator",
+  "generated_at": "2026-04-28T05:52:09.430144+00:00",
+  "kind": "text",
+  "model": "claude-haiku-4-5",
+  "provider": "anthropic",
+  "raw_init": {
+    "generation_kwargs": {
+      "max_tokens": 32
+    },
+    "model": "claude-haiku-4-5"
+  },
+  "raw_input": {
+    "prompt": "Reply with the exact phrase: blueguardrails trace ok",
+    "streaming_callback": "test_real_generators._run_case.<locals>._streaming_callback"
+  },
+  "raw_output": {
+    "meta": [
+      {
+        "finish_reason": "end_turn",
+        "index": 0,
+        "model": "claude-haiku-4-5",
+        "usage": {
+          "cache_creation": "CacheCreation(ephemeral_1h_input_tokens=0, ephemeral_5m_input_tokens=0)",
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 20,
+          "output_tokens": 10,
+          "server_tool_use": null,
+          "service_tier": "standard"
+        }
+      }
+    ],
+    "replies": [
+      "blueguardrails trace ok"
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "stop",
+        "parts": [
+          {
+            "content": "blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "91344690-8834-44d6-966d-2b29edf9f76c",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "text_completion",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"blueguardrails trace ok\"}], \"finish_reason\": \"stop\"}]",
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "claude-haiku-4-5",
+      "gen_ai.request.stream": true,
+      "gen_ai.response.finish_reasons": [
+        "stop"
+      ],
+      "gen_ai.response.model": "claude-haiku-4-5",
+      "gen_ai.usage.cache_creation.input_tokens": 0,
+      "gen_ai.usage.cache_read.input_tokens": 0,
+      "gen_ai.usage.input_tokens": 20,
+      "gen_ai.usage.output_tokens": 10,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "AnthropicGenerator",
+      "server.address": "api.anthropic.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "text_completion claude-haiku-4-5"
+  },
+  "variant": {
+    "id": "streaming",
+    "streaming": true
+  }
+}

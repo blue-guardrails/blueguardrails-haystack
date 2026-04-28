@@ -1,0 +1,171 @@
+{
+  "case_id": "openai_chat",
+  "class_path": "haystack.components.generators.chat.openai:OpenAIChatGenerator",
+  "generated_at": "2026-04-28T05:51:49.669509+00:00",
+  "kind": "chat",
+  "model": "gpt-5.4-nano",
+  "provider": "openai",
+  "raw_init": {
+    "generation_kwargs": {
+      "max_completion_tokens": 32
+    },
+    "model": "gpt-5.4-nano",
+    "tools": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "raw_input": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are a concise integration-test assistant. Follow the user's instruction exactly."
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Reply with the exact phrase: blueguardrails trace ok"
+          }
+        ],
+        "meta": {},
+        "name": null,
+        "role": "user"
+      }
+    ]
+  },
+  "raw_output": {
+    "replies": [
+      {
+        "content": [
+          {
+            "text": "blueguardrails trace ok"
+          }
+        ],
+        "meta": {
+          "finish_reason": "stop",
+          "index": 0,
+          "model": "gpt-5.4-nano-2026-03-17",
+          "usage": {
+            "completion_tokens": 8,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "prompt_tokens": 165,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 173
+          }
+        },
+        "name": null,
+        "role": "assistant"
+      }
+    ]
+  },
+  "semconv": {
+    "gen_ai.input.messages": [
+      {
+        "parts": [
+          {
+            "content": "You are a concise integration-test assistant. Follow the user's instruction exactly.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "parts": [
+          {
+            "content": "Reply with the exact phrase: blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "gen_ai.output.messages": [
+      {
+        "finish_reason": "stop",
+        "parts": [
+          {
+            "content": "blueguardrails trace ok",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "gen_ai.tool.definitions": [
+      {
+        "description": "Returns the provided value. Do not use unless explicitly asked to call a tool.",
+        "name": "blueguardrails_noop",
+        "parameters": {
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "span": {
+    "attributes": {
+      "gen_ai.agent.run.tags.pipeline_run_id": "82fe40f3-5746-40a7-a2bf-e10bd8cdc450",
+      "gen_ai.conversation.tags.haystack_component_name": "llm",
+      "gen_ai.input.messages": "[{\"role\": \"system\", \"parts\": [{\"type\": \"text\", \"content\": \"You are a concise integration-test assistant. Follow the user's instruction exactly.\"}]}, {\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.output.messages": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"blueguardrails trace ok\"}], \"finish_reason\": \"stop\"}]",
+      "gen_ai.provider.name": "openai",
+      "gen_ai.request.max_tokens": 32,
+      "gen_ai.request.model": "gpt-5.4-nano",
+      "gen_ai.request.stream": false,
+      "gen_ai.response.finish_reasons": [
+        "stop"
+      ],
+      "gen_ai.response.model": "gpt-5.4-nano-2026-03-17",
+      "gen_ai.tool.definitions": "[{\"type\": \"function\", \"name\": \"blueguardrails_noop\", \"description\": \"Returns the provided value. Do not use unless explicitly asked to call a tool.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"value\": {\"type\": \"string\"}}, \"required\": [\"value\"]}}]",
+      "gen_ai.usage.cache_read.input_tokens": 0,
+      "gen_ai.usage.input_tokens": 165,
+      "gen_ai.usage.output_tokens": 8,
+      "haystack.component.name": "llm",
+      "haystack.component.type": "OpenAIChatGenerator",
+      "server.address": "api.openai.com",
+      "server.port": 443
+    },
+    "kind": "CLIENT",
+    "name": "chat gpt-5.4-nano"
+  },
+  "variant": {
+    "id": "non_streaming",
+    "streaming": false
+  }
+}
