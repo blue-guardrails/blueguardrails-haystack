@@ -30,10 +30,21 @@ jobs:
         # astral-sh/setup-uv@v8.1.0
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
+          version: "0.11.8"
           enable-cache: true
 
       - name: Install Python
         run: uv python install "$UV_PYTHON"
+
+      - name: Set package version from tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$version" ] || [ "$version" = "$GITHUB_REF_NAME" ]; then
+            echo "Expected a tag starting with 'v', got '$GITHUB_REF_NAME'" >&2
+            exit 1
+          fi
+          uv version "$version" --frozen
+          echo "EXPECTED_PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build distributions
         run: uv build --no-sources

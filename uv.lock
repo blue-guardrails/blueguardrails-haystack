@@ -272,9 +272,9 @@ requires-dist = [
     { name = "amazon-bedrock-haystack", marker = "extra == 'integration'", specifier = ">=6.8.1" },
     { name = "anthropic-haystack", marker = "extra == 'integration'", specifier = ">=5.7.0" },
     { name = "google-genai-haystack", marker = "extra == 'integration'", specifier = ">=4.1.0" },
-    { name = "haystack-ai", specifier = ">=2.26.0" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.40.0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.40.0" },
+    { name = "haystack-ai", specifier = ">=2.24.0" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.16.0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.16.0" },
     { name = "pytest", marker = "extra == 'integration'", specifier = ">=9.0.0" },
     { name = "python-dotenv", marker = "extra == 'integration'", specifier = ">=1.2.0" },
 ]

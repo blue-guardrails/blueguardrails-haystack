@@ -10,6 +10,9 @@ dependencies, the public API imports, and a minimal trace can be produced withou
 contacting external services.
 """
 
+import os
+from importlib.metadata import version as installed_version
+
 from haystack.dataclasses import ChatMessage
 from haystack.tracing.tracer import tracer
 from opentelemetry.sdk.trace import TracerProvider
@@ -29,6 +32,14 @@ def main() -> None:
     """Exercise the installed package through its public tracing API."""
     if BlueGuardrailsConnector is None:
         raise RuntimeError("BlueGuardrailsConnector was not imported")
+
+    expected_version = os.getenv("EXPECTED_PACKAGE_VERSION")
+    if expected_version:
+        assert_equal(
+            installed_version("blueguardrails-haystack"),
+            expected_version,
+            "installed package version does not match the release tag",
+        )
 
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
