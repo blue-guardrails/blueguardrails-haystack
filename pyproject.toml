@@ -1,11 +1,12 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
 
 [project]
 name = "blueguardrails-haystack"
 version = "0.1.0"
 description = "Blue Guardrails tracing integration for Haystack"
+readme = "README.md"
 requires-python = ">=3.11,<3.15"
 classifiers = [
     "Programming Language :: Python :: 3.11",
@@ -28,6 +29,10 @@ integration = [
     "python-dotenv>=1.2.0",
 ]
 
+[project.urls]
+Documentation = "https://docs.blueguardrails.com"
+Repository = "https://github.com/blue-guardrails/blueguardrails-haystack"
+
 [dependency-groups]
 dev = [
     "pyright>=1.1.407",
@@ -38,8 +43,10 @@ dev = [
     "ruff>=0.14.0",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/blueguardrails_haystack"]
+[tool.uv.build-backend]
+module-name = "blueguardrails_haystack"
+module-root = "src"
+source-include = ["assets/**"]
 
 [tool.ruff]
 line-length = 120
