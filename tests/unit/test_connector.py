@@ -400,9 +400,7 @@ class TestBlueGuardrailsConnector:
             model="yaml-model",
         )
 
-    def test_readme_yaml_pipeline_example_loads_serializes_and_runs(
-        self, recording_connector_exporter, monkeypatch
-    ):
+    def test_readme_yaml_pipeline_example_loads_serializes_and_runs(self, recording_connector_exporter, monkeypatch):
         from openai.types.chat import ChatCompletion
         from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
         from openai.types.completion_usage import CompletionUsage
@@ -430,9 +428,7 @@ class TestBlueGuardrailsConnector:
 
         def fake_create(**kwargs):
             assert kwargs["model"] == expected_model
-            assert kwargs["messages"] == [
-                {"role": "user", "content": "Reply in one sentence. What is Haystack?"}
-            ]
+            assert kwargs["messages"] == [{"role": "user", "content": "Reply in one sentence. What is Haystack?"}]
             for key, value in expected_generation_kwargs.items():
                 assert kwargs[key] == value
             return ChatCompletion(
@@ -455,9 +451,7 @@ class TestBlueGuardrailsConnector:
 
         llm.client.chat.completions.create = fake_create
 
-        result = loaded.run(
-            {"llm": {"messages": [ChatMessage.from_user("Reply in one sentence. What is Haystack?")]}}
-        )
+        result = loaded.run({"llm": {"messages": [ChatMessage.from_user("Reply in one sentence. What is Haystack?")]}})
 
         assert result["llm"]["replies"][0].text == "Haystack builds LLM pipelines."
 
