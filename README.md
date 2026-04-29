@@ -1,10 +1,27 @@
-# blueguardrails-haystack
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-wordmark-white-transparent.svg">
+  <img alt="Blue Guardrails" src="./assets/logo-wordmark-blue-transparent.svg">
+</picture>
 
-Blue Guardrails tracing integration for Haystack.
+# Blue Guardrails - Haystack
 
-The package sends Haystack generator calls to Blue Guardrails as OpenTelemetry GenAI spans. It records inputs, outputs, model metadata, request options, tool definitions, token usage, and finish reasons for LLM calls in Haystack pipelines and agents.
+The Blue Guardrails Haystack integration instruments LLM and agent calls in Haystack and sends them as OpenTelemetry traces to the Blue Guardrails platform.
 
-The connector installs as a sidecar. Your existing Haystack tracer keeps working, and Blue Guardrails receives only generator spans.
+Use Blue Guardrails to monitor your agents and other GenAI applications in production or evaluate pre-deployment.
+
+The Blue Guardrails reliability layer runs on ingested traces and detects issues like hallucinations, poor instruction-following, or tool-calling issues.
+
+More info on Blue Guardrails in the official [documentation](https://docs.blueguardrails.com).
+
+## Features
+
+| Feature | Description |
+| --- | --- |
+| Haystack tracing | Trace Haystack agents and direct LLM calls. |
+| OpenTelemetry GenAI compatibility | Export traces that follow the OpenTelemetry [GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). |
+| Rich trace data | Capture inputs, outputs, tool calls, tool definitions, model parameters, and usage. |
+| Sampling controls | Choose how much trace data to send with configurable sampling. |
+| Reliability layer | Use the Blue Guardrails reliability layer to help prevent your agent from going off track. |
 
 ## Install
 
@@ -22,59 +39,11 @@ uv add blueguardrails-haystack
 
 The package supports Python 3.11 through 3.14.
 
-Set your Blue Guardrails API key:
-
-```bash
-export BLUE_GUARDRAILS_API_KEY="your-api-key"
-```
-
-Set your model provider credentials as usual. For example, set `OPENAI_API_KEY` when you use `OpenAIChatGenerator`.
-
-Install any provider-specific Haystack integrations you use. For example, install `anthropic-haystack`, `google-genai-haystack`, or `amazon-bedrock-haystack` if your pipeline uses those generators.
-
 ## Use
-
-Add `BlueGuardrailsConnector` to your pipeline. You don't need to connect it to other components.
-
-```python
-from haystack import Pipeline
-from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.dataclasses import ChatMessage
-from haystack.utils import Secret
-
-from blueguardrails_haystack import BlueGuardrailsConnector
-
-pipe = Pipeline()
-
-pipe.add_component(
-    "blueguardrails",
-    BlueGuardrailsConnector(
-        name="support-bot",
-        api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
-        tags={"environment": "development"},
-    ),
-)
-
-pipe.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini"))
-
-result = pipe.run(
-    {
-        "llm": {
-            "messages": [
-                ChatMessage.from_user("Reply in one sentence. What is Haystack?")
-            ]
-        }
-    }
-)
-
-print(result["llm"]["replies"][0].text)
-```
-
-When the pipeline runs, Blue Guardrails receives a trace for the `llm` generator call.
 
 ### Trace an agent
 
-To trace a standalone Haystack agent, configure the Blue Guardrails tracer before you run the agent.
+To trace a Haystack agent, configure the Blue Guardrails tracer before you run the agent.
 
 ```python
 from haystack.components.agents import Agent
@@ -127,6 +96,46 @@ Blue Guardrails receives a trace for each generator call the agent makes.
 ```python
 configure_blueguardrails_tracer(name="support-agent", api_key="your-api-key")
 ```
+
+### Trace a pipeline
+
+Add `BlueGuardrailsConnector` to your pipeline. You don't need to connect it to other components.
+
+```python
+from haystack import Pipeline
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
+from haystack.utils import Secret
+
+from blueguardrails_haystack import BlueGuardrailsConnector
+
+pipe = Pipeline()
+
+pipe.add_component(
+    "blueguardrails",
+    BlueGuardrailsConnector(
+        name="support-bot",
+        api_key=Secret.from_env_var("BLUE_GUARDRAILS_API_KEY"),
+        tags={"environment": "development"},
+    ),
+)
+
+pipe.add_component("llm", OpenAIChatGenerator(model="gpt-5.4-mini"))
+
+result = pipe.run(
+    {
+        "llm": {
+            "messages": [
+                ChatMessage.from_user("Reply in one sentence. What is Haystack?")
+            ]
+        }
+    }
+)
+
+print(result["llm"]["replies"][0].text)
+```
+
+When the pipeline runs, Blue Guardrails receives a trace for the `llm` call.
 
 ## Configure the connector
 
