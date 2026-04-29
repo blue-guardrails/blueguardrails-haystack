@@ -137,6 +137,65 @@ print(result["llm"]["replies"][0].text)
 
 When the pipeline runs, Blue Guardrails receives a trace for the `llm` call.
 
+### Load and trace a pipeline from YAML
+
+Haystack pipelines can be serialized to and loaded from YAML. Put the connector in the YAML just like any other component; loading the pipeline initializes Blue Guardrails tracing.
+
+`pipeline.yaml`:
+
+<!-- blueguardrails-yaml-example:start -->
+```yaml
+components:
+  blueguardrails:
+    type: blueguardrails_haystack.components.connector.BlueGuardrailsConnector
+    init_parameters:
+      name: support-bot
+      api_key:
+        type: env_var
+        env_vars:
+          - BLUE_GUARDRAILS_API_KEY
+        strict: true
+      sample_rate: 1.0
+      tags:
+        environment: development
+  llm:
+    type: haystack.components.generators.chat.openai.OpenAIChatGenerator
+    init_parameters:
+      model: gpt-5.4-mini
+      api_key:
+        type: env_var
+        env_vars:
+          - OPENAI_API_KEY
+        strict: true
+connections: []
+```
+<!-- blueguardrails-yaml-example:end -->
+
+Set `BLUE_GUARDRAILS_API_KEY` and `OPENAI_API_KEY` in your environment, then load and run it:
+
+```python
+from pathlib import Path
+
+from haystack import Pipeline
+from haystack.dataclasses import ChatMessage
+
+pipeline = Pipeline.loads(Path("pipeline.yaml").read_text())
+
+result = pipeline.run(
+    {
+        "llm": {
+            "messages": [
+                ChatMessage.from_user("Reply in one sentence. What is Haystack?")
+            ]
+        }
+    }
+)
+
+print(result["llm"]["replies"][0].text)
+```
+
+Use `Pipeline.dumps()` or `Pipeline.dump()` to serialize a Python-built pipeline back to YAML.
+
 ## Configure the connector
 
 ```python

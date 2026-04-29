@@ -4,7 +4,9 @@
 
 import json
 import os
+import re
 from copy import deepcopy
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -115,6 +117,18 @@ def _make_serde_pipeline(model: str = "serde-chat-model") -> Pipeline:
 def _latest_exported_spans(exporter_cls: type[RecordingOTLPSpanExporter]):
     assert exporter_cls.instances, "expected connector deserialization to initialize an exporter"
     return exporter_cls.instances[-1].spans
+
+
+def _readme_yaml_pipeline_example() -> str:
+    readme = Path(__file__).parents[2] / "README.md"
+    match = re.search(
+        r"<!-- blueguardrails-yaml-example:start -->\s*```yaml\n(?P<yaml>.*?)\n```\s*"
+        r"<!-- blueguardrails-yaml-example:end -->",
+        readme.read_text(),
+        re.DOTALL,
+    )
+    assert match, "README YAML pipeline example not found"
+    return match.group("yaml")
 
 
 def _assert_loaded_component_config(pipe: Pipeline, *, model: str = "serde-chat-model") -> None:
@@ -385,3 +399,88 @@ class TestBlueGuardrailsConnector:
             recording_connector_exporter,
             model="yaml-model",
         )
+
+    def test_readme_yaml_pipeline_example_loads_serializes_and_runs(
+        self, recording_connector_exporter, monkeypatch
+    ):
+        from openai.types.chat import ChatCompletion
+        from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
+        from openai.types.completion_usage import CompletionUsage
+
+        monkeypatch.setenv("BLUE_GUARDRAILS_API_KEY", "fake-blueguardrails-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-openai-key")
+        monkeypatch.setenv("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
+
+        loaded = Pipeline.loads(_readme_yaml_pipeline_example())
+
+        assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
+        assert "BlueGuardrailsConnector" in loaded.dumps()
+        assert "OpenAIChatGenerator" in loaded.dumps()
+        assert tracing.tracer.__class__ is _BlueGuardrailsSidecarProxy
+        assert tracing.tracer._blueguardrails_tracer is not None
+        assert tracing.tracer._blueguardrails_enabled
+
+        exporter = recording_connector_exporter.instances[-1]
+        assert exporter.endpoint == "https://api.blueguardrails.com/v1/traces"
+        assert exporter.headers == {"Authorization": "Bearer fake-blueguardrails-key"}
+
+        llm = loaded.get_component("llm")
+        expected_model = llm.model
+        expected_generation_kwargs = llm.generation_kwargs or {}
+
+        def fake_create(**kwargs):
+            assert kwargs["model"] == expected_model
+            assert kwargs["messages"] == [
+                {"role": "user", "content": "Reply in one sentence. What is Haystack?"}
+            ]
+            for key, value in expected_generation_kwargs.items():
+                assert kwargs[key] == value
+            return ChatCompletion(
+                id="chatcmpl-test",
+                choices=[
+                    Choice(
+                        finish_reason="stop",
+                        index=0,
+                        message=ChatCompletionMessage(
+                            role="assistant",
+                            content="Haystack builds LLM pipelines.",
+                        ),
+                    )
+                ],
+                created=0,
+                model=expected_model,
+                object="chat.completion",
+                usage=CompletionUsage(prompt_tokens=12, completion_tokens=6, total_tokens=18),
+            )
+
+        llm.client.chat.completions.create = fake_create
+
+        result = loaded.run(
+            {"llm": {"messages": [ChatMessage.from_user("Reply in one sentence. What is Haystack?")]}}
+        )
+
+        assert result["llm"]["replies"][0].text == "Haystack builds LLM pipelines."
+
+        spans = _latest_exported_spans(recording_connector_exporter)
+        assert len(spans) == 1
+        span = spans[0]
+        attrs = span.attributes
+        assert span.name == f"chat {expected_model}"
+        assert attrs["gen_ai.operation.name"] == "chat"
+        assert attrs["gen_ai.provider.name"] == "openai"
+        assert attrs["gen_ai.request.model"] == expected_model
+        assert attrs["gen_ai.response.model"] == expected_model
+        assert attrs["gen_ai.conversation.tags.environment"] == "development"
+        assert attrs["gen_ai.conversation.tags.haystack_component_name"] == "llm"
+        if "temperature" in expected_generation_kwargs:
+            assert attrs["gen_ai.request.temperature"] == expected_generation_kwargs["temperature"]
+        if "max_tokens" in expected_generation_kwargs:
+            assert attrs["gen_ai.request.max_tokens"] == expected_generation_kwargs["max_tokens"]
+        assert attrs["gen_ai.usage.input_tokens"] == 12
+        assert attrs["gen_ai.usage.output_tokens"] == 6
+
+        input_messages = json.loads(attrs["gen_ai.input.messages"])
+        assert input_messages[0]["parts"][0]["content"] == "Reply in one sentence. What is Haystack?"
+
+        output_messages = json.loads(attrs["gen_ai.output.messages"])
+        assert output_messages[0]["parts"][0]["content"] == "Haystack builds LLM pipelines."
