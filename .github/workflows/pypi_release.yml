@@ -1,0 +1,59 @@
+name: PyPI release
+
+on:
+  push:
+    tags:
+      # Publish on tags like v1.2.3.
+      - "v*"
+
+jobs:
+  pypi:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      # Create this environment in GitHub under Settings -> Environments, and
+      # configure the matching PyPI trusted publisher for this workflow file.
+      name: pypi
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      UV_PYTHON: "3.13"
+
+    steps:
+      - name: Check out repository
+        # actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Install uv
+        # astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: "0.11.8"
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install "$UV_PYTHON"
+
+      - name: Set package version from tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$version" ] || [ "$version" = "$GITHUB_REF_NAME" ]; then
+            echo "Expected a tag starting with 'v', got '$GITHUB_REF_NAME'" >&2
+            exit 1
+          fi
+          uv version "$version" --frozen
+          echo "EXPECTED_PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Build distributions
+        run: uv build --no-sources
+
+      - name: Smoke test wheel
+        run: uv run --isolated --no-project --with dist/*.whl tests/smoke_test.py
+
+      - name: Smoke test source distribution
+        run: uv run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always dist/*.tar.gz dist/*.whl
