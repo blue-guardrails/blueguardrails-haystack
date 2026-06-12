@@ -28,17 +28,48 @@ _pipeline_span_patched = False
 _original_create_component_span: Any | None = None
 
 
+def _blueguardrails_span(span: Span) -> BlueGuardrailsSpan | None:
+    """Return the Blue Guardrails span inside a Haystack span, if present."""
+    if isinstance(span, CompositeSpan) and isinstance(span.blueguardrails, BlueGuardrailsSpan):
+        return span.blueguardrails
+    if isinstance(span, BlueGuardrailsSpan):
+        return span
+    return None
+
+
 def _set_blueguardrails_component_config(span: Span, config: dict[str, Any]) -> None:
     """Attach component init config only to the Blue Guardrails span."""
     if not config:
         return
     try:
-        if isinstance(span, CompositeSpan) and isinstance(span.blueguardrails, BlueGuardrailsSpan):
-            span.blueguardrails.set_component_config(config)
-        elif isinstance(span, BlueGuardrailsSpan):
-            span.set_component_config(config)
+        if blueguardrails_span := _blueguardrails_span(span):
+            blueguardrails_span.set_component_config(config)
     except Exception as error:
         logger.warning("Blue Guardrails tracer skipped component config", error=repr(error))
+
+
+def _instrument_streaming_callback(span: Span, inputs: dict[str, Any]) -> Any:
+    """Wrap a component streaming callback long enough to record first-chunk latency."""
+    blueguardrails_span = _blueguardrails_span(span)
+    if blueguardrails_span is None:
+        return None
+
+    streaming_callback = inputs.get("streaming_callback")
+    if callable(streaming_callback):
+        wrapped_callback = blueguardrails_span.wrap_streaming_callback(streaming_callback)
+        inputs["streaming_callback"] = wrapped_callback
+        return "input", streaming_callback, wrapped_callback
+
+    return None
+
+
+def _restore_streaming_callback(inputs: dict[str, Any], callback_state: Any) -> None:
+    """Restore the user's original streaming callback after the component run."""
+    if callback_state is None:
+        return
+    location, original_callback, wrapped_callback = callback_state
+    if location == "input" and inputs.get("streaming_callback") is wrapped_callback:
+        inputs["streaming_callback"] = original_callback
 
 
 def _patch_pipeline_component_span_for_models() -> None:
@@ -64,7 +95,11 @@ def _patch_pipeline_component_span_for_models() -> None:
     ) -> Generator[Span]:
         with original_create_component_span(component_name, instance, inputs, parent_span) as span:
             _set_blueguardrails_component_config(span, extract_component_config(instance))
-            yield span
+            callback_state = _instrument_streaming_callback(span, inputs)
+            try:
+                yield span
+            finally:
+                _restore_streaming_callback(inputs, callback_state)
 
     PipelineBase._create_component_span = _create_component_span_with_blueguardrails_model
     _pipeline_span_patched = True

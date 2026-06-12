@@ -4,6 +4,10 @@
 
 """Haystack span implementations used by the Blue Guardrails sidecar tracer."""
 
+from collections.abc import Callable
+from functools import wraps
+from inspect import iscoroutinefunction
+from time import perf_counter
 from typing import Any, TypeGuard
 
 from haystack import logging
@@ -51,6 +55,37 @@ class BlueGuardrailsSpan(Span):
         """
         self._span = otel_span
         self._is_chat = is_chat
+
+    def wrap_streaming_callback(self, streaming_callback: Callable[..., Any]) -> Callable[..., Any]:
+        """Wrap a streaming callback to record time to first chunk."""
+        request_start = perf_counter()
+        first_chunk_seen = False
+
+        def _record_first_chunk() -> None:
+            nonlocal first_chunk_seen
+            if not first_chunk_seen:
+                first_chunk_seen = True
+                try:
+                    elapsed = max(perf_counter() - request_start, 0.0)
+                    self._span.set_attribute("gen_ai.response.time_to_first_chunk", elapsed)
+                except Exception as error:
+                    logger.warning("Blue Guardrails tracer skipped time to first chunk", error=repr(error))
+
+        if iscoroutinefunction(streaming_callback):
+
+            @wraps(streaming_callback)
+            async def _async_wrapped_streaming_callback(*args: Any, **kwargs: Any) -> Any:
+                _record_first_chunk()
+                return await streaming_callback(*args, **kwargs)
+
+            return _async_wrapped_streaming_callback
+
+        @wraps(streaming_callback)
+        def _wrapped_streaming_callback(*args: Any, **kwargs: Any) -> Any:
+            _record_first_chunk()
+            return streaming_callback(*args, **kwargs)
+
+        return _wrapped_streaming_callback
 
     def set_tag(self, key: str, value: Any) -> None:
         """Map a standard Haystack tag to Blue Guardrails attributes."""
@@ -149,7 +184,9 @@ class BlueGuardrailsSpan(Span):
         self._set_request_options(request_options)
 
         if "streaming_callback" in value and "stream" not in request_options:
-            self._span.set_attribute("gen_ai.request.stream", value["streaming_callback"] is not None)
+            input_stream = value["streaming_callback"] is not None
+            if input_stream or self._get_attribute("gen_ai.request.stream") is None:
+                self._span.set_attribute("gen_ai.request.stream", input_stream)
 
         if "tools" in value and value["tools"] is not None:
             self._set_tool_definitions(value["tools"])

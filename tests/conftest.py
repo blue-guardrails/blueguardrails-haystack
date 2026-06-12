@@ -21,7 +21,7 @@ except ImportError:
 if load_dotenv is not None:
     load_dotenv()
 
-_DEFAULT_BLUEGUARDRAILS_ENDPOINT = "https://app.blueguardrails.com/v1/traces"
+_DEFAULT_BLUEGUARDRAILS_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,15 @@ def _truthy_env(name: str) -> bool:
     return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
 
 
+def _env_first(*names: str) -> str | None:
+    """Return the first non-empty environment variable from a list of aliases."""
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("blueguardrails")
     group.addoption(
@@ -58,7 +67,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help=(
             "Export integration/benchmark test spans to Blue Guardrails. "
-            "Can also be enabled with BLUEGUARDRAILS_SEND_TRACES=1. Requires BLUE_GUARDRAILS_API_KEY."
+            "Can also be enabled with BLUEGUARDRAILS_SEND_TRACES=1 or BG_SEND_TRACES=1. "
+            "Requires BLUE_GUARDRAILS_API_KEY or BG_API_KEY."
         ),
     )
     group.addoption(
@@ -67,7 +77,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Blue Guardrails OTLP HTTP traces endpoint to use with --blueguardrails-send-traces. "
-            "Defaults to BLUEGUARDRAILS_ENDPOINT or the production endpoint."
+            "Defaults to BLUEGUARDRAILS_ENDPOINT, BG_ENDPOINT, or the production endpoint."
         ),
     )
 
@@ -82,17 +92,24 @@ def blueguardrails_live_export_config(request: pytest.FixtureRequest) -> BlueGua
     Returns:
         Live export configuration, or ``None`` when export is disabled.
     """
-    send_traces = request.config.getoption("--blueguardrails-send-traces") or _truthy_env("BLUEGUARDRAILS_SEND_TRACES")
+    send_traces = (
+        request.config.getoption("--blueguardrails-send-traces")
+        or _truthy_env("BLUEGUARDRAILS_SEND_TRACES")
+        or _truthy_env("BG_SEND_TRACES")
+    )
     if not send_traces:
         return None
 
-    api_key = os.getenv("BLUE_GUARDRAILS_API_KEY")
+    api_key = _env_first("BLUE_GUARDRAILS_API_KEY", "BG_API_KEY")
     if not api_key:
-        pytest.fail("--blueguardrails-send-traces/BLUEGUARDRAILS_SEND_TRACES requires BLUE_GUARDRAILS_API_KEY")
+        pytest.fail(
+            "--blueguardrails-send-traces/BLUEGUARDRAILS_SEND_TRACES/BG_SEND_TRACES requires "
+            "BLUE_GUARDRAILS_API_KEY or BG_API_KEY"
+        )
 
     endpoint = (
         request.config.getoption("--blueguardrails-endpoint")
-        or os.getenv("BLUEGUARDRAILS_ENDPOINT")
+        or _env_first("BLUEGUARDRAILS_ENDPOINT", "BG_ENDPOINT")
         or _DEFAULT_BLUEGUARDRAILS_ENDPOINT
     )
     return BlueGuardrailsLiveExportConfig(endpoint=endpoint, api_key=api_key)
