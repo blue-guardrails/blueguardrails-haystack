@@ -359,8 +359,6 @@ TEXT_CASES = [
         generation_kwargs={"max_tokens": MAX_TOKENS},
         credentials_available=_bedrock_credentials,
         init_accepts_generation_kwargs=False,
-        # The legacy InvokeModel component returns AWS ResponseMetadata, not model usage metadata.
-        expect_usage=False,
         expect_finish_reasons=False,
     ),
 ]

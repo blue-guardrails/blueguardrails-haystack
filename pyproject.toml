@@ -31,7 +31,7 @@ dependencies = [
 
 [project.optional-dependencies]
 integration = [
-    "amazon-bedrock-haystack>=6.8.1",
+    "amazon-bedrock-haystack>=6.12.0",
     "anthropic-haystack>=5.7.0",
     "google-genai-haystack>=4.1.0",
     "pytest>=9.0.0",

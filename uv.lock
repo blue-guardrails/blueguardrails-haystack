@@ -1,4 +1,5 @@
 version = 1
+revision = 3
 requires-python = ">=3.11, <3.15"
 
 [[package]]
@@ -154,16 +155,16 @@ wheels = [
 
 [[package]]
 name = "amazon-bedrock-haystack"
-version = "6.8.1"
+version = "6.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiobotocore" },
     { name = "boto3" },
     { name = "haystack-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/ed/eb7af447430f90e6c7a7ec427a420725d33aec05a4b53c90a77a6df60b44/amazon_bedrock_haystack-6.8.1.tar.gz", hash = "sha256:fb2332d91dece226a30cfb661289d664ef244c3dbd8d87b4467022e723b3a121", size = 400736 }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/8a/b1419766bbf3e4163fdc46675e272f32546119881dc66d1c52063a4d24ba/amazon_bedrock_haystack-6.12.0.tar.gz", hash = "sha256:6b71d9c20488ed38a79d0e9a44b4f1541818f86524ab6c9d8b87cb7d1acaee51", size = 404908 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/ab/04be4e85a10e6b237822365af4f53abf389b0d084ed5cda7f5428ae7e140/amazon_bedrock_haystack-6.8.1-py3-none-any.whl", hash = "sha256:a1c44b76f1c192fa8da11b86db08d2b097683da09bdf709c3ba8c8c0b177eb54", size = 54120 },
+    { url = "https://files.pythonhosted.org/packages/b1/d6/53eeb2d90cc2148130e17373606372ed74b0ced112f4a4de63c4d82bc392/amazon_bedrock_haystack-6.12.0-py3-none-any.whl", hash = "sha256:42d800936a4193516de55148ced1f3590277ea8d976f1913fa0d5f4c7b74b18c", size = 55990 },
 ]
 
 [[package]]
@@ -269,7 +270,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amazon-bedrock-haystack", marker = "extra == 'integration'", specifier = ">=6.8.1" },
+    { name = "amazon-bedrock-haystack", marker = "extra == 'integration'", specifier = ">=6.12.0" },
     { name = "anthropic-haystack", marker = "extra == 'integration'", specifier = ">=5.7.0" },
     { name = "google-genai-haystack", marker = "extra == 'integration'", specifier = ">=4.1.0" },
     { name = "haystack-ai", specifier = ">=2.24.0" },
@@ -278,6 +279,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'integration'", specifier = ">=9.0.0" },
     { name = "python-dotenv", marker = "extra == 'integration'", specifier = ">=1.2.0" },
 ]
+provides-extras = ["integration"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -879,15 +881,17 @@ wheels = [
 
 [[package]]
 name = "haystack-ai"
-version = "2.26.0"
+version = "2.30.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
     { name = "filetype" },
     { name = "haystack-experimental" },
+    { name = "httpx" },
     { name = "jinja2" },
     { name = "jsonschema" },
     { name = "lazy-imports" },
+    { name = "markupsafe" },
     { name = "more-itertools" },
     { name = "networkx" },
     { name = "numpy" },
@@ -896,14 +900,13 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "pyyaml" },
-    { name = "requests" },
     { name = "tenacity" },
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/da/a3f707a90f791e56fb779fcf666c471ecef75fdb2b04094e043bf1ebe511/haystack_ai-2.26.0.tar.gz", hash = "sha256:7a782c27847cb0e20fb091934bd7003c50bd9afa45c38625fb962d3bdbfb2daf", size = 472876 }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/0b/7e7ff0bfcf483ec5c87887388ca654cb5b780e9e5b63f482804d5f7c8566/haystack_ai-2.30.1.tar.gz", hash = "sha256:60b3d7add807559f6a00a1e518e7f09d3eb3754b3e60b1de31f6cefdf9d86307", size = 498591 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/64/f0169f8a0026768c595d7b3eeb48d2ebae02668cc390f76c53b4da77101b/haystack_ai-2.26.0-py3-none-any.whl", hash = "sha256:7860d9557972ead1e4829bd1d9fa8ed9c639c9211a32f9b02686e9ad2401d738", size = 688340 },
+    { url = "https://files.pythonhosted.org/packages/0f/52/0c8a371f3f8b54bccce5b9b5ab35a562a9a179529fc98cd336596d0df3ca/haystack_ai-2.30.1-py3-none-any.whl", hash = "sha256:7efe4d5e648fd1c48e936d325ecd91a38d2e22dcd8a90d848acf7d7e6ab08474", size = 720049 },
 ]
 
 [[package]]
@@ -2186,7 +2189,7 @@ name = "tqdm"
 version = "4.67.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598 }
 wheels = [
