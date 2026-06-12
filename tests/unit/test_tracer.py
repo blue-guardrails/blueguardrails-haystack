@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import contextlib
+import inspect
 import json
 from typing import Any
 
@@ -84,6 +86,18 @@ class ExplodingOtelSpan:
 
     def update_name(self, name: str) -> None:
         raise RuntimeError("otel boom")
+
+
+class RecordingOtelSpan:
+    def __init__(self) -> None:
+        self.attributes: dict[str, Any] = {}
+        self.name: str | None = None
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+    def update_name(self, name: str) -> None:
+        self.name = name
 
 
 class ExplodingBlueGuardrailsTracer(Tracer):
@@ -181,6 +195,19 @@ class TestComponentConfigExtraction:
         config = extract_component_config(FakeGenerator())
 
         assert config["server"] == {"address": "generativelanguage.googleapis.com", "port": 443}
+
+    def test_extracts_stream_from_private_init_callback(self):
+        def _streaming_callback(chunk: object) -> None:
+            pass
+
+        class FakeGenerator:
+            model = "test-model"
+
+        generator = FakeGenerator()
+        generator._streaming_callback = _streaming_callback
+        config = extract_component_config(generator)
+
+        assert config["request_options"]["stream"] is True
 
 
 # --- BlueGuardrailsTracer tests ---
@@ -293,6 +320,22 @@ class TestBlueGuardrailsSpanContentMapping:
         span = BlueGuardrailsSpan(ExplodingOtelSpan(), is_chat=True)
 
         span.set_tag("haystack.component.name", "llm")
+
+    def test_wrap_streaming_callback_preserves_async_callback(self):
+        otel_span = RecordingOtelSpan()
+        span = BlueGuardrailsSpan(otel_span, is_chat=True)
+        chunks: list[str] = []
+
+        async def _streaming_callback(chunk: str) -> str:
+            chunks.append(chunk)
+            return "ok"
+
+        wrapped_callback = span.wrap_streaming_callback(_streaming_callback)
+
+        assert inspect.iscoroutinefunction(wrapped_callback)
+        assert asyncio.run(wrapped_callback("first")) == "ok"
+        assert chunks == ["first"]
+        assert isinstance(otel_span.attributes["gen_ai.response.time_to_first_chunk"], float)
 
     def test_chat_input_messages(self):
         provider, exporter = _make_provider_and_exporter()

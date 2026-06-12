@@ -70,6 +70,44 @@ class MockStreamingChatGenerator:
 
 
 @component
+class MockInitStreamingChatGenerator:
+    """A mock ChatGenerator with a public init-time streaming callback."""
+
+    model = "init-streaming-mock-model"
+
+    def __init__(self, streaming_callback: Any) -> None:
+        self.streaming_callback = streaming_callback
+
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage]) -> dict:
+        self.streaming_callback(StreamingChunk(content="Hello"))
+        reply = ChatMessage.from_assistant(
+            "Hello",
+            meta={"model": self.model, "usage": {"prompt_tokens": 3, "completion_tokens": 2}},
+        )
+        return {"replies": [reply]}
+
+
+@component
+class MockPrivateInitStreamingChatGenerator:
+    """A mock ChatGenerator with a private init-time streaming callback."""
+
+    model = "private-init-streaming-mock-model"
+
+    def __init__(self, streaming_callback: Any) -> None:
+        self._streaming_callback = streaming_callback
+
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage]) -> dict:
+        self._streaming_callback(StreamingChunk(content="Hello"))
+        reply = ChatMessage.from_assistant(
+            "Hello",
+            meta={"model": self.model, "usage": {"prompt_tokens": 3, "completion_tokens": 2}},
+        )
+        return {"replies": [reply]}
+
+
+@component
 class MockPlainGenerator:
     """A mock non-chat Generator with a configured model but no output metadata."""
 
@@ -241,6 +279,35 @@ class TestOtelCoexistence:
         assert attrs["gen_ai.request.stream"] is True
         assert isinstance(attrs["gen_ai.response.time_to_first_chunk"], float)
         assert attrs["gen_ai.response.time_to_first_chunk"] >= 0.0
+
+    def test_init_streaming_callback_marks_stream_without_wrapping_instance(self):
+        _, blueguardrails_exporter, _ = _setup_tracers()
+        streamed_chunks: list[StreamingChunk] = []
+        original_callback = streamed_chunks.append
+        generator = MockInitStreamingChatGenerator(original_callback)
+
+        pipe = Pipeline()
+        pipe.add_component("llm", generator)
+        pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
+
+        assert streamed_chunks
+        assert generator.streaming_callback is original_callback
+        attrs = blueguardrails_exporter.get_finished_spans()[0].attributes
+        assert attrs["gen_ai.request.stream"] is True
+        assert "gen_ai.response.time_to_first_chunk" not in attrs
+
+    def test_private_init_streaming_callback_marks_stream(self):
+        _, blueguardrails_exporter, _ = _setup_tracers()
+        streamed_chunks: list[StreamingChunk] = []
+
+        pipe = Pipeline()
+        pipe.add_component("llm", MockPrivateInitStreamingChatGenerator(streamed_chunks.append))
+        pipe.run({"llm": {"messages": [ChatMessage.from_user("Hi")]}})
+
+        assert streamed_chunks
+        attrs = blueguardrails_exporter.get_finished_spans()[0].attributes
+        assert attrs["gen_ai.request.stream"] is True
+        assert "gen_ai.response.time_to_first_chunk" not in attrs
 
     def test_user_otel_spans_not_polluted_with_genai_semconv(self):
         """Blue Guardrails GenAI attributes must not leak into user's OTel spans."""

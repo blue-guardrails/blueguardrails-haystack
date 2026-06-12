@@ -6,6 +6,7 @@
 
 from collections.abc import Callable
 from functools import wraps
+from inspect import iscoroutinefunction
 from time import perf_counter
 from typing import Any, TypeGuard
 
@@ -60,8 +61,7 @@ class BlueGuardrailsSpan(Span):
         request_start = perf_counter()
         first_chunk_seen = False
 
-        @wraps(streaming_callback)
-        def _wrapped_streaming_callback(*args: Any, **kwargs: Any) -> Any:
+        def _record_first_chunk() -> None:
             nonlocal first_chunk_seen
             if not first_chunk_seen:
                 first_chunk_seen = True
@@ -70,6 +70,19 @@ class BlueGuardrailsSpan(Span):
                     self._span.set_attribute("gen_ai.response.time_to_first_chunk", elapsed)
                 except Exception as error:
                     logger.warning("Blue Guardrails tracer skipped time to first chunk", error=repr(error))
+
+        if iscoroutinefunction(streaming_callback):
+
+            @wraps(streaming_callback)
+            async def _async_wrapped_streaming_callback(*args: Any, **kwargs: Any) -> Any:
+                _record_first_chunk()
+                return await streaming_callback(*args, **kwargs)
+
+            return _async_wrapped_streaming_callback
+
+        @wraps(streaming_callback)
+        def _wrapped_streaming_callback(*args: Any, **kwargs: Any) -> Any:
+            _record_first_chunk()
             return streaming_callback(*args, **kwargs)
 
         return _wrapped_streaming_callback
