@@ -23,7 +23,7 @@ import opentelemetry.trace
 from conftest import reset_haystack_tracing_state
 from haystack import Pipeline, component, tracing
 from haystack.components.builders import ChatPromptBuilder
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import Tool
 from haystack.tracing import OpenTelemetryTracer, Span, Tracer, utils as tracing_utils
 from opentelemetry.sdk.resources import Resource
@@ -48,6 +48,23 @@ class MockChatGenerator:
                 "finish_reason": "stop",
                 "usage": {"prompt_tokens": 15, "completion_tokens": 8},
             },
+        )
+        return {"replies": [reply]}
+
+
+@component
+class MockStreamingChatGenerator:
+    """A mock streaming ChatGenerator that invokes the streaming callback."""
+
+    model = "streaming-mock-model"
+
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage], streaming_callback: Any | None = None) -> dict:
+        if streaming_callback is not None:
+            streaming_callback(StreamingChunk(content="Hello"))
+        reply = ChatMessage.from_assistant(
+            "Hello",
+            meta={"model": self.model, "usage": {"prompt_tokens": 3, "completion_tokens": 2}},
         )
         return {"replies": [reply]}
 
@@ -201,6 +218,29 @@ class TestOtelCoexistence:
 
         output_msgs = json.loads(blueguardrails_span.attributes["gen_ai.output.messages"])
         assert output_msgs[0]["role"] == "assistant"
+
+    def test_streaming_generator_records_time_to_first_chunk(self):
+        _, blueguardrails_exporter, _ = _setup_tracers()
+        streamed_chunks: list[StreamingChunk] = []
+
+        pipe = Pipeline()
+        pipe.add_component("llm", MockStreamingChatGenerator())
+        pipe.run(
+            {
+                "llm": {
+                    "messages": [ChatMessage.from_user("Hi")],
+                    "streaming_callback": streamed_chunks.append,
+                }
+            }
+        )
+
+        assert streamed_chunks
+        blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
+        assert len(blueguardrails_spans) == 1
+        attrs = blueguardrails_spans[0].attributes
+        assert attrs["gen_ai.request.stream"] is True
+        assert isinstance(attrs["gen_ai.response.time_to_first_chunk"], float)
+        assert attrs["gen_ai.response.time_to_first_chunk"] >= 0.0
 
     def test_user_otel_spans_not_polluted_with_genai_semconv(self):
         """Blue Guardrails GenAI attributes must not leak into user's OTel spans."""

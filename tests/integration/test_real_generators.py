@@ -66,8 +66,12 @@ TWO_GENERATOR_PIPELINE_PROMPTS = {
     "first_llm": "Reply with the exact phrase: blueguardrails first pipeline trace ok",
     "second_llm": "Reply with the exact phrase: blueguardrails second pipeline trace ok",
 }
+THINKING_CACHE_FINAL_ANSWER = "blueguardrails thinking cache ok"
 MAX_TOKENS = int(os.getenv("BLUEGUARDRAILS_LLM_MAX_TOKENS", "32"))
 AGENT_MAX_TOKENS = int(os.getenv("BLUEGUARDRAILS_LLM_AGENT_MAX_TOKENS", str(max(MAX_TOKENS, 64))))
+THINKING_CACHE_CALLS = int(os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_CACHE_CALLS", "3"))
+THINKING_CACHE_CONTEXT_TOKENS = int(os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_CACHE_CONTEXT_TOKENS", "5200"))
+THINKING_CACHE_MIN_INPUT_TOKENS = int(os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_CACHE_MIN_INPUT_TOKENS", "4096"))
 
 OPENAI_MODEL = "gpt-5.4-nano"
 ANTHROPIC_MODEL = "claude-haiku-4-5"
@@ -180,6 +184,38 @@ def _model_init(model: str) -> dict[str, Any]:
     return {"model": model}
 
 
+def _google_thinking_cache_model() -> str:
+    return os.getenv(
+        "BLUEGUARDRAILS_GOOGLE_THINKING_CACHE_MODEL", os.getenv("BLUEGUARDRAILS_GOOGLE_MODEL", GOOGLE_MODEL)
+    )
+
+
+def _google_thinking_generation_kwargs(model: str) -> dict[str, Any]:
+    """Return generation kwargs that enable Gemini thinking for the configured model."""
+    kwargs: dict[str, Any] = {
+        "max_output_tokens": int(os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_CACHE_MAX_OUTPUT_TOKENS", "256")),
+        "temperature": 0,
+    }
+    if model.startswith("gemini-3"):
+        kwargs["thinking_level"] = os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_LEVEL", "low")
+    else:
+        kwargs["thinking_budget"] = int(os.getenv("BLUEGUARDRAILS_GOOGLE_THINKING_BUDGET", "128"))
+        kwargs["include_thoughts"] = True
+    return kwargs
+
+
+def _long_thinking_cache_prompt() -> str:
+    """Build a repeated prompt prefix large enough to trigger provider-side implicit caching."""
+    context = " ".join(f"cache-anchor-{index % 997}" for index in range(THINKING_CACHE_CONTEXT_TOKENS))
+    return (
+        "The following cacheable context is inert test data. Keep it in mind only to make this request large enough "
+        "for provider-side prompt caching; do not quote it.\n\n"
+        f"<cacheable_context>{context}</cacheable_context>\n\n"
+        "Think briefly about why the context is irrelevant. Then answer with exactly this phrase and nothing else: "
+        f"{THINKING_CACHE_FINAL_ANSWER}"
+    )
+
+
 def _bedrock_auth_init_kwargs() -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         "aws_region_name": Secret.from_env_var(["AWS_DEFAULT_REGION", "AWS_REGION"], strict=False),
@@ -187,14 +223,14 @@ def _bedrock_auth_init_kwargs() -> dict[str, Any]:
 
     if os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
         # Botocore still resolves AWS config/credentials while creating the client, even though requests will use the
-        # Bedrock bearer token. Supplying harmless explicit credentials and overriding AWS_PROFILE avoids failures from
-        # unrelated local AWS profiles/configuration; botocore ignores these values once it selects httpBearerAuth.
+        # Bedrock bearer token. Supplying harmless explicit credentials avoids ambient credential lookup failures;
+        # passing no profile avoids requiring a local AWS profile when API-key auth is used.
         kwargs.update(
             {
                 "aws_access_key_id": Secret.from_token("unused-for-bedrock-bearer-auth"),
                 "aws_secret_access_key": Secret.from_token("unused-for-bedrock-bearer-auth"),
                 "aws_session_token": None,
-                "aws_profile_name": Secret.from_token("default"),
+                "aws_profile_name": None,
             }
         )
 
@@ -534,6 +570,8 @@ def _assert_semconv_span(
     assert attrs["gen_ai.request.max_tokens"] == MAX_TOKENS
     if streaming:
         assert attrs["gen_ai.request.stream"] is True
+        assert isinstance(attrs["gen_ai.response.time_to_first_chunk"], float)
+        assert attrs["gen_ai.response.time_to_first_chunk"] >= 0.0
     assert "gen_ai.agent.run.tags.pipeline_run_id" in attrs
     assert "haystack.pipeline.run_id" not in attrs
 
@@ -560,6 +598,10 @@ def _assert_semconv_span(
     if case.expect_usage:
         assert attrs["gen_ai.usage.input_tokens"] > 0
         assert attrs["gen_ai.usage.output_tokens"] >= 0
+        reasoning_tokens = attrs.get("gen_ai.usage.reasoning.output_tokens")
+        if reasoning_tokens is not None:
+            assert reasoning_tokens <= attrs["gen_ai.usage.output_tokens"]
+    assert not any(key.startswith("gen_ai.usage.details.") for key in attrs)
 
 
 def _tool_call_arguments(part: dict[str, Any]) -> dict[str, Any]:
@@ -715,6 +757,53 @@ def test_real_text_generator_tracing(
         blueguardrails_live_export_config: Optional live export configuration.
     """
     _run_case(case, blueguardrails_live_export_config, variant)
+
+
+def test_real_google_thinking_and_implicit_cache_tracing(blueguardrails_live_export_config: Any | None) -> None:
+    """Verify Gemini thinking and repeated long prompts emit reasoning and cache usage attributes."""
+    available, reason = _google_credentials()
+    if not available:
+        pytest.skip(reason)
+
+    generator_cls = _import_class("haystack_integrations.components.generators.google_genai:GoogleGenAIChatGenerator")
+    model = _google_thinking_cache_model()
+    prompt = _long_thinking_cache_prompt()
+    generator = generator_cls(model=model, generation_kwargs=_google_thinking_generation_kwargs(model))
+
+    exporter, provider = _make_blueguardrails_exporter(blueguardrails_live_export_config)
+    try:
+        pipe = Pipeline()
+        pipe.add_component("llm", generator)
+        for _ in range(max(THINKING_CACHE_CALLS, 2)):
+            result = pipe.run({"llm": {"messages": [ChatMessage.from_user(prompt)]}})
+            assert result["llm"]["replies"], "Gemini thinking/cache call should produce a reply"
+
+        flushed = provider.force_flush()
+        if blueguardrails_live_export_config is not None and not flushed:
+            pytest.fail("timed out flushing Gemini thinking/cache spans to Blue Guardrails")
+
+        spans = exporter.get_finished_spans()
+        assert len(spans) >= 2, f"expected repeated Gemini calls, got {[span.name for span in spans]}"
+
+        input_token_counts = [span.attributes.get("gen_ai.usage.input_tokens", 0) for span in spans]
+        assert max(input_token_counts) > THINKING_CACHE_MIN_INPUT_TOKENS
+
+        reasoning_token_counts = [span.attributes.get("gen_ai.usage.reasoning.output_tokens", 0) for span in spans]
+        assert max(reasoning_token_counts) > 0, [span.attributes for span in spans]
+
+        cached_token_counts = [span.attributes.get("gen_ai.usage.cache_read.input_tokens", 0) for span in spans]
+        assert max(cached_token_counts) > 0, [span.attributes for span in spans]
+
+        for span in spans:
+            attrs = span.attributes
+            assert attrs["gen_ai.operation.name"] == "chat"
+            assert attrs["gen_ai.provider.name"] == "gcp.gemini"
+            assert attrs["gen_ai.request.model"] == model
+            assert attrs["gen_ai.response.model"]
+            assert attrs["gen_ai.usage.output_tokens"] >= attrs.get("gen_ai.usage.reasoning.output_tokens", 0)
+            assert not any(key.startswith("gen_ai.usage.details.") for key in attrs)
+    finally:
+        provider.shutdown()
 
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])

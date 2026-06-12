@@ -33,6 +33,10 @@ def _make_provider_and_exporter():
     return provider, exporter
 
 
+def _assert_no_legacy_usage_details(attrs: dict[str, Any]) -> None:
+    assert not any(key.startswith("gen_ai.usage.details.") for key in attrs)
+
+
 class FakeSpan(Span):
     """Minimal Span implementation for testing."""
 
@@ -409,7 +413,7 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.input_tokens"] == 5215
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 5120
         assert attrs["gen_ai.usage.output_tokens"] == 1
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 5120
+        _assert_no_legacy_usage_details(attrs)
 
     def test_openai_responses_nested_cache_tokens_are_reported_without_double_counting(self):
         provider, exporter = _make_provider_and_exporter()
@@ -437,9 +441,9 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.input_tokens"] == 6013
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 5888
         assert attrs["gen_ai.usage.output_tokens"] == 58
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 5888
+        _assert_no_legacy_usage_details(attrs)
 
-    def test_openai_usage_detail_attributes_include_nested_details(self):
+    def test_openai_reasoning_output_tokens_are_reported_from_nested_details(self):
         provider, exporter = _make_provider_and_exporter()
         tracer = BlueGuardrailsTracer(provider)
 
@@ -466,10 +470,8 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.input_tokens"] == 20
         assert attrs["gen_ai.usage.output_tokens"] == 7
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 12
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 12
-        assert attrs["gen_ai.usage.details.input_audio_tokens"] == 3
-        assert attrs["gen_ai.usage.details.output_audio_tokens"] == 2
-        assert attrs["gen_ai.usage.details.reasoning_tokens"] == 4
+        assert attrs["gen_ai.usage.reasoning.output_tokens"] == 4
+        _assert_no_legacy_usage_details(attrs)
 
     def test_deepseek_openai_compatible_cache_hit_tokens_are_reported_without_double_counting(self):
         provider, exporter = _make_provider_and_exporter()
@@ -498,7 +500,7 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.input_tokens"] == 5007
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 4992
         assert attrs["gen_ai.usage.output_tokens"] == 8
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 4992
+        _assert_no_legacy_usage_details(attrs)
 
     def test_anthropic_cache_tokens_are_added_to_input_tokens(self):
         provider, exporter = _make_provider_and_exporter()
@@ -528,8 +530,7 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 7000
         assert attrs["gen_ai.usage.cache_creation.input_tokens"] == 0
         assert attrs["gen_ai.usage.output_tokens"] == 4
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 7000
-        assert "gen_ai.usage.details.cache_write_tokens" not in attrs
+        _assert_no_legacy_usage_details(attrs)
 
     def test_bedrock_cache_tokens_are_added_to_input_tokens(self):
         provider, exporter = _make_provider_and_exporter()
@@ -560,8 +561,7 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 35013
         assert attrs["gen_ai.usage.cache_creation.input_tokens"] == 0
         assert attrs["gen_ai.usage.output_tokens"] == 7
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 35013
-        assert "gen_ai.usage.details.cache_write_tokens" not in attrs
+        _assert_no_legacy_usage_details(attrs)
 
     def test_google_cached_content_is_not_double_counted_and_thoughts_are_output_tokens(self):
         provider, exporter = _make_provider_and_exporter()
@@ -590,9 +590,8 @@ class TestBlueGuardrailsSpanContentMapping:
         assert attrs["gen_ai.usage.input_tokens"] == 7210
         assert attrs["gen_ai.usage.cache_read.input_tokens"] == 7201
         assert attrs["gen_ai.usage.output_tokens"] == 59
-        assert attrs["gen_ai.usage.details.cache_read_tokens"] == 7201
-        assert attrs["gen_ai.usage.details.cached_content_tokens"] == 7201
-        assert attrs["gen_ai.usage.details.thoughts_tokens"] == 58
+        assert attrs["gen_ai.usage.reasoning.output_tokens"] == 58
+        _assert_no_legacy_usage_details(attrs)
 
 
 # --- CompositeSpan tests ---
