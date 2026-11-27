@@ -19,14 +19,17 @@ import os
 from collections.abc import Iterator
 from typing import Any
 
+import httpx
 import opentelemetry.trace
 from conftest import reset_haystack_tracing_state
 from haystack import Pipeline, component, tracing
 from haystack.components.agents import Agent
 from haystack.components.builders import ChatPromptBuilder
+from haystack.components.generators.chat.azure import AzureOpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import Tool
 from haystack.tracing import Span, Tracer, utils as tracing_utils
+from haystack.utils import Secret
 from haystack_integrations.tracing.opentelemetry import OpenTelemetryTracer
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -225,6 +228,50 @@ class TestOtelCoexistence:
     def teardown_method(self):
         reset_haystack_tracing_state()
         os.environ.pop("HAYSTACK_CONTENT_TRACING_ENABLED", None)
+
+    def test_azure_openai_deployment_trace(self):
+        # Only the HTTP transport is fake: exercise Haystack, the Azure SDK request and the OTel exporter.
+        def complete(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/openai/deployments/support-bot/chat/completions"
+            assert json.loads(request.content)["messages"] == [{"role": "user", "content": "Hello"}]
+            return httpx.Response(
+                200,
+                json={
+                    "id": "chatcmpl-test",
+                    "object": "chat.completion",
+                    "created": 1,
+                    "model": "gpt-4o-mini",
+                    "choices": [
+                        {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "Hi"}}
+                    ],
+                    "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+                },
+            )
+
+        _, exporter, _ = _setup_tracers()
+        pipe = Pipeline()
+        pipe.add_component(
+            "llm",
+            AzureOpenAIChatGenerator(
+                azure_endpoint="https://test-resource.openai.azure.com",
+                azure_deployment="support-bot",
+                api_key=Secret.from_token("test-key"),
+                azure_ad_token=None,
+                http_client_kwargs={"transport": httpx.MockTransport(complete)},
+            ),
+        )
+        result = pipe.run({"llm": {"messages": [ChatMessage.from_user("Hello")]}})
+
+        assert result["llm"]["replies"][0].text == "Hi"
+        (span,) = exporter.get_finished_spans()
+        attrs = span.attributes
+        assert span.name == "chat support-bot"
+        assert attrs["gen_ai.provider.name"] == "azure.ai.openai"
+        assert attrs["gen_ai.request.model"] == "support-bot"
+        assert attrs["gen_ai.response.model"] == "gpt-4o-mini"
+        assert attrs["server.address"] == "test-resource.openai.azure.com"
+        assert attrs["gen_ai.usage.input_tokens"] == 5
+        assert attrs["gen_ai.usage.output_tokens"] == 2
 
     def test_agent_traces_generator_with_init_config(self):
         _, exporter, _ = _setup_tracers()

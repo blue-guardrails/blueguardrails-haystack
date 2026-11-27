@@ -228,6 +228,27 @@ BlueGuardrailsConnector(
 
 Traces include generator inputs and outputs. Review your data handling requirements before you enable the connector in production.
 
+## Test against Azure OpenAI
+
+The offline suite exercises an Azure chat deployment using a mocked HTTP response.
+To run the live tests, set `AZURE_OPENAI_ENDPOINT` to your resource endpoint and provide
+`AZURE_OPENAI_API_KEY` through your environment or an untracked `.env` file.
+Set `BLUEGUARDRAILS_AZURE_OPENAI_DEPLOYMENT` to the name of a chat deployment that supports
+streaming and tool calls, and `BLUEGUARDRAILS_AZURE_OPENAI_RESPONSES_DEPLOYMENT` to a deployment
+that supports the Responses API. These are Azure deployment names, not necessarily model IDs.
+
+```bash
+for group in haystack2 haystack3; do
+  uv run --locked --group "$group" --extra integration pytest -m integration \
+    tests/integration/test_real_generators.py -k azure_openai -rs || exit 1
+done
+```
+
+These tests make billable Azure calls. They check streaming and non-streaming generators,
+run correlation across two generators, connector tags, and an agent tool-call loop. Legacy
+text generators run on Haystack 2 only. Without Azure credentials the live tests skip; no
+Blue Guardrails key is needed unless you explicitly enable trace export.
+
 ## License
 
 Apache-2.0
