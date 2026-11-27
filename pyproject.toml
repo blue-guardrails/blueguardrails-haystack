@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.11.0,<0.12.0"]
+requires = ["uv_build>=0.13.10,<0.14"]
 build-backend = "uv_build"
 
 [project]
@@ -24,18 +24,21 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "haystack-ai>=2.24.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.16.0",
-    "opentelemetry-sdk>=1.16.0",
+    "haystack-ai>=2.24.0,<4",
+    # Early Haystack 2.x OpenAI generators import httpx but do not declare it.
+    "httpx>=0.28",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
 ]
 
 [project.optional-dependencies]
 integration = [
-    "amazon-bedrock-haystack>=6.8.1",
-    "anthropic-haystack>=5.7.0",
-    "google-genai-haystack>=4.1.0",
-    "pytest>=9.0.0",
-    "python-dotenv>=1.2.0",
+    "amazon-bedrock-haystack>=7.1.0",
+    "anthropic-haystack>=5.17.0",
+    "google-genai-haystack>=4.9.0",
+    "opentelemetry-haystack>=2.0.0",
+    "pytest>=9.2.0",
+    "python-dotenv>=1.2.4",
 ]
 
 [project.urls]
@@ -43,14 +46,20 @@ Documentation = "https://docs.blueguardrails.com"
 Repository = "https://github.com/blue-guardrails/blueguardrails-haystack"
 
 [dependency-groups]
+haystack2 = ["haystack-ai<3"]
+haystack3 = ["haystack-ai>=3"]
 dev = [
-    "pyright>=1.1.407",
-    "pytest>=9.0.0",
-    "pytest-cov>=7.0.0",
+    "opentelemetry-haystack>=2.0.0",
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
-    "python-dotenv>=1.2.0",
-    "ruff>=0.14.0",
+    "python-dotenv>=1.2.4",
+    "ruff>=0.17.6",
 ]
+
+[tool.uv]
+conflicts = [[{ group = "haystack2" }, { group = "haystack3" }]]
 
 [tool.uv.build-backend]
 module-name = "blueguardrails_haystack"

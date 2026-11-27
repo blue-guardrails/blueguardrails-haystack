@@ -1,0 +1,53 @@
+name: Dependency Vulnerability Scan
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/dependency-scan.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/dependency-scan.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "41 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Grype (${{ matrix.haystack }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        haystack: [haystack2, haystack3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "0.13.10"
+          enable-cache: false
+
+      - name: Export locked Python dependencies as a CycloneDX SBOM
+        env:
+          HAYSTACK_GROUP: ${{ matrix.haystack }}
+        run: uv export --locked --all-extras --group "$HAYSTACK_GROUP" --format cyclonedx1.5 > dependencies.cdx.json
+
+      - name: Scan for fixable high and critical vulnerabilities
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
+        with:
+          grype-version: v0.122.1
+          sbom: dependencies.cdx.json
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table
+          cache-db: false

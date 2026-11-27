@@ -1,0 +1,30 @@
+version: 2
+
+multi-ecosystem-groups:
+  daily-routine:
+    schedule:
+      interval: daily
+    update-types: [minor, patch]
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    multi-ecosystem-group: daily-routine
+    patterns: ["*"]
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: "/"
+    multi-ecosystem-group: daily-routine
+    patterns: ["*"]
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]

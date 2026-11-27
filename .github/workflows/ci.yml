@@ -10,33 +10,37 @@ permissions:
 
 jobs:
   quality-and-tests:
-    name: Code quality and tests (Python ${{ matrix.python-version }})
+    name: Code quality and tests (Python ${{ matrix.python-version }}, ${{ matrix.haystack }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
+        haystack: [haystack2, haystack3]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    env:
+      # The Makefile uses uv run; keep it in the environment selected by the matrix.
+      UV_NO_SYNC: "true"
+      HAYSTACK_TELEMETRY_ENABLED: "false"
 
     steps:
       - name: Check out repository
-        # actions/checkout@v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        # astral-sh/setup-uv@v8.1.0
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          enable-cache: true
-
-      - name: Set up Python
-        # actions/setup-python@v6.2.0
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
-        with:
+          version: "0.13.10"
+          enable-cache: false
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --group dev
+        env:
+          HAYSTACK_GROUP: ${{ matrix.haystack }}
+        run: uv sync --locked --all-extras --group "$HAYSTACK_GROUP"
 
       - name: Lint
         run: make lint

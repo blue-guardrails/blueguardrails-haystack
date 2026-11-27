@@ -31,6 +31,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Literal
 
@@ -704,6 +705,7 @@ def test_real_chat_generator_tracing(
     _run_case(case, blueguardrails_live_export_config, variant)
 
 
+@pytest.mark.skipif(not version("haystack-ai").startswith("2."), reason="legacy text generators are Haystack 2 only")
 @pytest.mark.parametrize("case", TEXT_CASES, ids=[case.id for case in TEXT_CASES])
 @pytest.mark.parametrize("variant", GENERATOR_RUN_VARIANTS, ids=[variant.id for variant in GENERATOR_RUN_VARIANTS])
 def test_real_text_generator_tracing(

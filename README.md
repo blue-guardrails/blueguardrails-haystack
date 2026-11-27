@@ -37,7 +37,13 @@ Or with uv:
 uv add blueguardrails-haystack
 ```
 
-The package supports Python 3.11 through 3.14.
+The package supports Python 3.11 through 3.14 and Haystack 2.24+ (2.x) or 3.x.
+The tracer does not pin provider SDKs. Use the SDK versions compatible with your
+Haystack generators; the versions in this repository’s `uv.lock` are for development
+and CI, not constraints on applications that install the package.
+
+To run the offline test suite against either locked dependency set, use
+`uv run --locked --group haystack2 pytest` or `uv run --locked --group haystack3 pytest`.
 
 ## Use
 
@@ -179,7 +185,12 @@ from pathlib import Path
 from haystack import Pipeline
 from haystack.dataclasses import ChatMessage
 
-pipeline = Pipeline.loads(Path("pipeline.yaml").read_text())
+# On Haystack versions with a deserialization allowlist, trust just the connector module.
+# On older versions without this parameter, omit allowed_modules.
+pipeline = Pipeline.loads(
+    Path("pipeline.yaml").read_text(),
+    allowed_modules=["blueguardrails_haystack.components.connector"],
+)
 
 result = pipeline.run(
     {

@@ -22,10 +22,12 @@ from typing import Any
 import opentelemetry.trace
 from conftest import reset_haystack_tracing_state
 from haystack import Pipeline, component, tracing
+from haystack.components.agents import Agent
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
-from haystack.tracing import OpenTelemetryTracer, Span, Tracer, utils as tracing_utils
+from haystack.tracing import Span, Tracer, utils as tracing_utils
+from haystack_integrations.tracing.opentelemetry import OpenTelemetryTracer
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -168,6 +170,21 @@ class TestOtelCoexistence:
     def teardown_method(self):
         reset_haystack_tracing_state()
         os.environ.pop("HAYSTACK_CONTENT_TRACING_ENABLED", None)
+
+    def test_agent_traces_generator_with_init_config(self):
+        _, exporter, _ = _setup_tracers()
+        agent = Agent(chat_generator=MockInitConfigChatGenerator())
+        agent.run(messages=[ChatMessage.from_user("Hello")])
+
+        (span,) = exporter.get_finished_spans()
+        assert span.name == "chat init-config-model"
+        attrs = span.attributes
+        assert attrs["gen_ai.agent.run.tags.pipeline_run_id"]
+        assert attrs["gen_ai.provider.name"] == "mockinitconfig"
+        assert attrs["gen_ai.conversation.tags.haystack_component_name"] == "chat_generator"
+        assert attrs["gen_ai.request.temperature"] == 0.25
+        assert "Hello" in attrs["gen_ai.input.messages"]
+        assert "init config response" in attrs["gen_ai.output.messages"]
 
     def test_both_tracers_receive_correct_spans(self):
         user_exporter, blueguardrails_exporter, _ = _setup_tracers()

@@ -9,6 +9,8 @@ from __future__ import annotations
 import contextlib
 import sys
 from collections.abc import Generator
+from contextvars import ContextVar
+from functools import wraps
 from typing import TYPE_CHECKING, Any
 
 from haystack import logging
@@ -26,6 +28,37 @@ logger = logging.getLogger(__name__)
 
 _pipeline_span_patched = False
 _original_create_component_span: Any | None = None
+
+
+_agent_generator: ContextVar[object | None] = ContextVar("blueguardrails_agent_generator", default=None)
+_original_create_agent_span: Any | None = None
+
+
+def _patch_agent_span_for_models() -> None:
+    """Carry the generator across Haystack 3's untagged agent LLM step spans."""
+    global _original_create_agent_span
+    if _original_create_agent_span is not None:
+        return
+
+    from haystack.components.agents import Agent
+
+    # Haystack 2 runs agent generators through Pipeline._run_component instead.
+    if not hasattr(Agent, "_run_step"):
+        return
+    original = Agent._create_agent_span
+
+    @wraps(original)
+    @contextlib.contextmanager
+    def create_agent_span(self: Agent, *args: Any, **kwargs: Any) -> Generator[Span]:
+        token = _agent_generator.set(self.chat_generator)
+        try:
+            with original(self, *args, **kwargs) as span:
+                yield span
+        finally:
+            _agent_generator.reset(token)
+
+    Agent._create_agent_span = create_agent_span
+    _original_create_agent_span = original
 
 
 def _set_blueguardrails_component_config(span: Span, config: dict[str, Any]) -> None:
@@ -78,8 +111,18 @@ def _enter_blueguardrails_trace(
 ) -> tuple[Any, Span]:
     """Start a Blue Guardrails trace without propagating failures."""
     try:
+        generator = _agent_generator.get() if operation_name == "haystack.agent.step.llm" else None
+        config = {}
+        if generator is not None:
+            tags = {
+                **(tags or {}),
+                "haystack.component.type": type(generator).__name__,
+                "haystack.component.name": "chat_generator",
+            }
+            config = extract_component_config(generator)
         ctx = blueguardrails_tracer.trace(operation_name, tags=tags, parent_span=parent_span)
         span = ctx.__enter__()
+        _set_blueguardrails_component_config(span, config)
         return ctx, span
     except Exception as error:
         logger.warning("Blue Guardrails tracer failed to start span", operation_name=operation_name, error=repr(error))
@@ -210,6 +253,7 @@ def configure_blueguardrails_tracer(
         tracer_to_configure = blueguardrails_tracer
 
     _patch_pipeline_component_span_for_models()
+    _patch_agent_span_for_models()
 
     proxy.__class__ = _BlueGuardrailsSidecarProxy
     if not isinstance(proxy, _BlueGuardrailsSidecarProxy):
