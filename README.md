@@ -226,6 +226,8 @@ BlueGuardrailsConnector(
 | `sample_rate` | `1.0` | Fraction of generator calls to export. Use a value between `0.0` and `1.0`. |
 | `tags` | `None` | Conversation tags attached to each exported generator span. |
 
+Generator spans from the same run share `gen_ai.agent.run_id`, the Blue Guardrails run ID field. The tracer does not add this UUID to run or conversation tags.
+
 Traces include generator inputs and outputs. Review your data handling requirements before you enable the connector in production.
 
 ## Test against Azure OpenAI

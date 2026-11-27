@@ -268,7 +268,7 @@ class TestBlueGuardrailsTracer:
 
         assert len(exporter.get_finished_spans()) == 0
 
-    def test_pipeline_run_id_is_propagated_as_agent_run_tag(self):
+    def test_pipeline_run_id_is_propagated_as_agent_run_id(self):
         provider, exporter = _make_provider_and_exporter()
         tracer = BlueGuardrailsTracer(provider)
 
@@ -282,7 +282,9 @@ class TestBlueGuardrailsTracer:
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
-        assert "gen_ai.agent.run.tags.pipeline_run_id" in spans[0].attributes
+        assert "gen_ai.agent.run_id" in spans[0].attributes
+        assert "gen_ai.agent.run.tags.pipeline_run_id" not in spans[0].attributes
+        assert "gen_ai.conversation.tags.pipeline_run_id" not in spans[0].attributes
         assert "haystack.pipeline.run_id" not in spans[0].attributes
 
     def test_conversation_tags_are_propagated(self):

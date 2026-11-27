@@ -66,7 +66,7 @@
   },
   "span": {
     "attributes": {
-      "gen_ai.agent.run.tags.pipeline_run_id": "63a479d6-e914-4763-83b8-18f32cd65cc3",
+      "gen_ai.agent.run_id": "63a479d6-e914-4763-83b8-18f32cd65cc3",
       "gen_ai.conversation.tags.haystack_component_name": "llm",
       "gen_ai.input.messages": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
       "gen_ai.operation.name": "text_completion",

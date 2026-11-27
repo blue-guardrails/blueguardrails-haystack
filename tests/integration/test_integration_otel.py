@@ -281,7 +281,7 @@ class TestOtelCoexistence:
         (span,) = exporter.get_finished_spans()
         assert span.name == "chat init-config-model"
         attrs = span.attributes
-        assert attrs["gen_ai.agent.run.tags.pipeline_run_id"]
+        assert attrs["gen_ai.agent.run_id"]
         assert attrs["gen_ai.provider.name"] == "mockinitconfig"
         assert attrs["gen_ai.conversation.tags.haystack_component_name"] == "chat_generator"
         assert attrs["gen_ai.request.temperature"] == 0.25
@@ -441,7 +441,7 @@ class TestOtelCoexistence:
                 )
 
     def test_pipeline_run_id_correlation(self):
-        """Blue Guardrails exposes the per-run correlation ID as the pipeline_run_id agent run tag."""
+        """Blue Guardrails exposes the per-run correlation ID in the dedicated agent run ID attribute."""
         _, blueguardrails_exporter, _ = _setup_tracers()
 
         pipe = Pipeline()
@@ -450,7 +450,7 @@ class TestOtelCoexistence:
 
         blueguardrails_spans = blueguardrails_exporter.get_finished_spans()
         assert len(blueguardrails_spans) == 1
-        assert "gen_ai.agent.run.tags.pipeline_run_id" in blueguardrails_spans[0].attributes
+        assert "gen_ai.agent.run_id" in blueguardrails_spans[0].attributes
         assert "haystack.pipeline.run_id" not in blueguardrails_spans[0].attributes
 
     def test_component_name_is_added_as_conversation_tag(self):
