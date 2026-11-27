@@ -91,6 +91,12 @@ def component_request_options(instance: Any) -> dict[str, Any]:
     if max_length is not None:
         request_options.setdefault("max_tokens", max_length)
 
+    if (
+        getattr(instance, "streaming_callback", None) is not None
+        or getattr(instance, "_streaming_callback", None) is not None
+    ):
+        request_options.setdefault("stream", True)
+
     return request_options
 
 

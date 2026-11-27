@@ -162,7 +162,6 @@
       ],
       "gen_ai.response.model": "gemini-3.1-flash-lite-preview",
       "gen_ai.tool.definitions": "[{\"type\": \"function\", \"name\": \"blueguardrails_noop\", \"description\": \"Returns the provided value. Do not use unless explicitly asked to call a tool.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"value\": {\"type\": \"string\"}}, \"required\": [\"value\"]}}]",
-      "gen_ai.usage.details.text_prompt_tokens": 85,
       "gen_ai.usage.input_tokens": 85,
       "gen_ai.usage.output_tokens": 5,
       "haystack.component.name": "llm",
