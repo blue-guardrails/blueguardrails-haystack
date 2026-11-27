@@ -37,7 +37,13 @@ Or with uv:
 uv add blueguardrails-haystack
 ```
 
-The package supports Python 3.11 through 3.14.
+The package supports Python 3.11 through 3.14 and Haystack 2.24+ (2.x) or 3.x.
+The tracer does not pin provider SDKs. Use the SDK versions compatible with your
+Haystack generators; the versions in this repository’s `uv.lock` are for development
+and CI, not constraints on applications that install the package.
+
+To run the offline test suite against either locked dependency set, use
+`uv run --locked --group haystack2 pytest` or `uv run --locked --group haystack3 pytest`.
 
 ## Use
 
@@ -179,7 +185,12 @@ from pathlib import Path
 from haystack import Pipeline
 from haystack.dataclasses import ChatMessage
 
-pipeline = Pipeline.loads(Path("pipeline.yaml").read_text())
+# On Haystack versions with a deserialization allowlist, trust just the connector module.
+# On older versions without this parameter, omit allowed_modules.
+pipeline = Pipeline.loads(
+    Path("pipeline.yaml").read_text(),
+    allowed_modules=["blueguardrails_haystack.components.connector"],
+)
 
 result = pipeline.run(
     {
@@ -216,6 +227,27 @@ BlueGuardrailsConnector(
 | `tags` | `None` | Conversation tags attached to each exported generator span. |
 
 Traces include generator inputs and outputs. Review your data handling requirements before you enable the connector in production.
+
+## Test against Azure OpenAI
+
+The offline suite exercises an Azure chat deployment using a mocked HTTP response.
+To run the live tests, set `AZURE_OPENAI_ENDPOINT` to your resource endpoint and provide
+`AZURE_OPENAI_API_KEY` through your environment or an untracked `.env` file.
+Set `BLUEGUARDRAILS_AZURE_OPENAI_DEPLOYMENT` to the name of a chat deployment that supports
+streaming and tool calls, and `BLUEGUARDRAILS_AZURE_OPENAI_RESPONSES_DEPLOYMENT` to a deployment
+that supports the Responses API. These are Azure deployment names, not necessarily model IDs.
+
+```bash
+for group in haystack2 haystack3; do
+  uv run --locked --group "$group" --extra integration pytest -m integration \
+    tests/integration/test_real_generators.py -k azure_openai -rs || exit 1
+done
+```
+
+These tests make billable Azure calls. They check streaming and non-streaming generators,
+run correlation across two generators, connector tags, and an agent tool-call loop. Legacy
+text generators run on Haystack 2 only. Without Azure credentials the live tests skip; no
+Blue Guardrails key is needed unless you explicitly enable trace export.
 
 ## License
 

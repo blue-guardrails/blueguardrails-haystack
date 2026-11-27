@@ -31,6 +31,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Literal
 
@@ -399,10 +400,8 @@ TEXT_CASES = [
     ),
 ]
 
-# Keep targeted end-to-end tests to a single actual provider to avoid multiplying
-# live LLM calls while still exercising real ChatGenerator behavior.
-OPENAI_CHAT_CASES = [case for case in CHAT_CASES if case.id == "openai_chat"]
-AGENT_CASES = OPENAI_CHAT_CASES
+# Exercise the public and Azure deployment paths with the same pipeline and agent assertions.
+OPENAI_CHAT_CASES = [case for case in CHAT_CASES if case.id in {"openai_chat", "azure_openai_chat"}]
 
 GENERATOR_RUN_VARIANTS = [
     RealGeneratorRunVariant(id="non_streaming", streaming=False),
@@ -744,6 +743,7 @@ def test_real_chat_generator_tracing(
     _run_case(case, blueguardrails_live_export_config, variant)
 
 
+@pytest.mark.skipif(not version("haystack-ai").startswith("2."), reason="legacy text generators are Haystack 2 only")
 @pytest.mark.parametrize("case", TEXT_CASES, ids=[case.id for case in TEXT_CASES])
 @pytest.mark.parametrize("variant", GENERATOR_RUN_VARIANTS, ids=[variant.id for variant in GENERATOR_RUN_VARIANTS])
 def test_real_text_generator_tracing(
@@ -1000,7 +1000,7 @@ def test_real_connector_tags_are_conversation_tags(
         connector._provider.shutdown()
 
 
-@pytest.mark.parametrize("case", AGENT_CASES, ids=[case.id for case in AGENT_CASES])
+@pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
 def test_real_haystack_agent_tracing(case: RealGeneratorCase, blueguardrails_live_export_config: Any | None) -> None:
     """Verify a Haystack Agent emits GenAI spans for LLM calls.
 

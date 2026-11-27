@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
 import json
 import os
 import re
@@ -97,6 +98,13 @@ def recording_connector_exporter(monkeypatch):
     monkeypatch.setattr(connector_module, "OTLPSpanExporter", RecordingOTLPSpanExporter)
     monkeypatch.setattr(connector_module, "BatchSpanProcessor", SimpleSpanProcessor)
     return RecordingOTLPSpanExporter
+
+
+def _load_options(*modules: str) -> dict:
+    # Newer Haystack versions require explicit trust for third-party components.
+    if "allowed_modules" in inspect.signature(Pipeline.loads).parameters:
+        return {"allowed_modules": [connector_module.__name__, *modules]}
+    return {}
 
 
 def _make_serde_pipeline(model: str = "serde-chat-model") -> Pipeline:
@@ -359,7 +367,7 @@ class TestBlueGuardrailsConnector:
         assert data["components"]["llm"]["type"].endswith("SerdeChatGenerator")
 
         reset_haystack_tracing_state()
-        loaded = Pipeline.from_dict(deepcopy(data))
+        loaded = Pipeline.from_dict(deepcopy(data), **_load_options(__name__))
 
         assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
         assert isinstance(loaded.get_component("llm"), SerdeChatGenerator)
@@ -385,7 +393,7 @@ class TestBlueGuardrailsConnector:
         assert "SerdeChatGenerator" in yaml_data
 
         reset_haystack_tracing_state()
-        loaded = Pipeline.loads(yaml_data)
+        loaded = Pipeline.loads(yaml_data, **_load_options(__name__))
 
         assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
         assert isinstance(loaded.get_component("llm"), SerdeChatGenerator)
@@ -409,7 +417,7 @@ class TestBlueGuardrailsConnector:
         monkeypatch.setenv("OPENAI_API_KEY", "fake-openai-key")
         monkeypatch.setenv("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
 
-        loaded = Pipeline.loads(_readme_yaml_pipeline_example())
+        loaded = Pipeline.loads(_readme_yaml_pipeline_example(), **_load_options())
 
         assert isinstance(loaded.get_component("blueguardrails"), BlueGuardrailsConnector)
         assert "BlueGuardrailsConnector" in loaded.dumps()
@@ -449,6 +457,7 @@ class TestBlueGuardrailsConnector:
                 usage=CompletionUsage(prompt_tokens=12, completion_tokens=6, total_tokens=18),
             )
 
+        llm.warm_up()  # Haystack 3 initializes the client lazily.
         llm.client.chat.completions.create = fake_create
 
         result = loaded.run({"llm": {"messages": [ChatMessage.from_user("Reply in one sentence. What is Haystack?")]}})

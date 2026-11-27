@@ -42,6 +42,12 @@ def reset_haystack_tracing_state() -> None:
 
         PipelineBase._create_component_span = staticmethod(blueguardrails_proxy._original_create_component_span)
 
+    if blueguardrails_proxy._original_create_agent_span is not None:
+        from haystack.components.agents import Agent
+
+        Agent._create_agent_span = blueguardrails_proxy._original_create_agent_span
+        blueguardrails_proxy._original_create_agent_span = None
+
     blueguardrails_proxy._pipeline_span_patched = False
     blueguardrails_proxy._original_create_component_span = None
 
