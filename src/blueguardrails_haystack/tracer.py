@@ -28,7 +28,7 @@ _DEFAULT_ENDPOINT = "https://api.blueguardrails.com/v1/traces"
 _DEFAULT_SERVICE_NAME = "blueguardrails-haystack"
 _DEFAULT_TRACE_NAME = "blueguardrails-haystack"
 _PIPELINE_RUN_OPERATIONS = frozenset({"haystack.pipeline.run", "haystack.async_pipeline.run", "haystack.agent.run"})
-_RUN_ID_TAG_ATTRIBUTE = "gen_ai.agent.run.tags.pipeline_run_id"
+_RUN_ID_ATTRIBUTE = "gen_ai.agent.run_id"
 _CONVERSATION_TAG_ATTRIBUTE_PREFIX = "gen_ai.conversation.tags."
 _HAYSTACK_COMPONENT_NAME_CONVERSATION_TAG = f"{_CONVERSATION_TAG_ATTRIBUTE_PREFIX}haystack_component_name"
 
@@ -81,7 +81,7 @@ class BlueGuardrailsTracer(Tracer):
 
             run_id = _run_id_var.get()
             if run_id:
-                otel_span.set_attribute(_RUN_ID_TAG_ATTRIBUTE, run_id)
+                otel_span.set_attribute(_RUN_ID_ATTRIBUTE, run_id)
 
             for key, value in self._conversation_tags.items():
                 otel_span.set_attribute(f"{_CONVERSATION_TAG_ATTRIBUTE_PREFIX}{key}", str(value))

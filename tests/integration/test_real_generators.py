@@ -571,7 +571,7 @@ def _assert_semconv_span(
         assert attrs["gen_ai.request.stream"] is True
         assert isinstance(attrs["gen_ai.response.time_to_first_chunk"], float)
         assert attrs["gen_ai.response.time_to_first_chunk"] >= 0.0
-    assert "gen_ai.agent.run.tags.pipeline_run_id" in attrs
+    assert "gen_ai.agent.run_id" in attrs
     assert "haystack.pipeline.run_id" not in attrs
 
     input_messages = json.loads(attrs["gen_ai.input.messages"])
@@ -623,7 +623,7 @@ def _assert_agent_semconv_spans(case: RealGeneratorCase, spans: list[Any], model
         assert attrs["gen_ai.request.model"] == model
         assert attrs["gen_ai.response.model"]
         assert span.name == f"chat {model}"
-        pipeline_run_ids.add(attrs["gen_ai.agent.run.tags.pipeline_run_id"])
+        pipeline_run_ids.add(attrs["gen_ai.agent.run_id"])
 
         tool_defs = json.loads(attrs["gen_ai.tool.definitions"])
         assert tool_defs[0]["type"] == "function"
@@ -856,7 +856,7 @@ def test_real_pipeline_with_two_chat_generators(
         component_names = {span.attributes.get("haystack.component.name") for span in spans}
         assert component_names == set(TWO_GENERATOR_PIPELINE_PROMPTS)
 
-        pipeline_run_ids = {span.attributes["gen_ai.agent.run.tags.pipeline_run_id"] for span in spans}
+        pipeline_run_ids = {span.attributes["gen_ai.agent.run_id"] for span in spans}
         assert len(pipeline_run_ids) == 1
         assert uuid.UUID(str(next(iter(pipeline_run_ids))))
 
@@ -869,10 +869,10 @@ def test_real_pipeline_with_two_chat_generators(
 
 
 @pytest.mark.parametrize("case", OPENAI_CHAT_CASES, ids=[case.id for case in OPENAI_CHAT_CASES])
-def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
+def test_real_chat_generator_pipeline_run_id_is_agent_run_id(
     case: RealGeneratorCase, blueguardrails_live_export_config: Any | None
 ) -> None:
-    """Verify a chat generator span includes the pipeline run tag.
+    """Verify a chat generator span includes the pipeline run ID.
 
     Args:
         case: Generator test case.
@@ -897,12 +897,12 @@ def test_real_chat_generator_pipeline_run_id_is_agent_run_tag(
 
         flushed = provider.force_flush()
         if blueguardrails_live_export_config is not None and not flushed:
-            pytest.fail("timed out flushing run-tag span to Blue Guardrails")
+            pytest.fail("timed out flushing run-ID span to Blue Guardrails")
 
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
         attrs = spans[0].attributes
-        pipeline_run_id = attrs["gen_ai.agent.run.tags.pipeline_run_id"]
+        pipeline_run_id = attrs["gen_ai.agent.run_id"]
         assert uuid.UUID(str(pipeline_run_id))
         assert "haystack.pipeline.run_id" not in attrs
     finally:

@@ -149,7 +149,7 @@
   },
   "span": {
     "attributes": {
-      "gen_ai.agent.run.tags.pipeline_run_id": "06faef19-dc2f-4915-8a4d-516256baba29",
+      "gen_ai.agent.run_id": "06faef19-dc2f-4915-8a4d-516256baba29",
       "gen_ai.conversation.tags.haystack_component_name": "llm",
       "gen_ai.input.messages": "[{\"role\": \"system\", \"parts\": [{\"type\": \"text\", \"content\": \"You are a concise integration-test assistant. Follow the user's instruction exactly.\"}]}, {\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"Reply with the exact phrase: blueguardrails trace ok\"}]}]",
       "gen_ai.operation.name": "chat",
